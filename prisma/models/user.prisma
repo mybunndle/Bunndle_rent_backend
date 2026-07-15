@@ -1,0 +1,22 @@
+// USER ROLE
+enum UserRole {
+  USER
+  ADMIN
+}
+
+// USER MODEL
+model User {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  name       String
+  email      String   @unique
+  phone      String?  @unique
+  password   String?
+
+  role       UserRole @default(USER)
+  isVerified Boolean  @default(false)
+  isBlocked  Boolean  @default(false)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
