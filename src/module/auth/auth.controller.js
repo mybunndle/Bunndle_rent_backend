@@ -1,5 +1,5 @@
 import { registerSchema, loginSchema } from './auth.validation.js';
-import { registerUser_Service, loginUser_Service, getUserProfile_Service } from './auth.service.js';
+import { registerUser_Service, loginUser_Service, getUserProfile_Service ,changePassword_Service} from './auth.service.js';
 
 export async function register(req, res) {
   try {
@@ -45,3 +45,21 @@ export async function getCurrentUser(req, res) {
     return res.status(err.statusCode || 500).json({ message: err.message });
   }
 }
+export async function changePassword(req, res) {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    const userId = req.user.id;
+
+    const result = await changePassword_Service(
+        userId
+      , oldPassword
+      , newPassword
+    );
+
+    return res.status(200).json(result);
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({ 
+      message: err.message,
+     });
+  }
+};
