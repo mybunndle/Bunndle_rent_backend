@@ -1,5 +1,5 @@
-import { registerSchema, loginSchema } from './auth.validation.js';
-import { registerUser_Service, loginUser_Service, getUserProfile_Service ,changePassword_Service} from './auth.service.js';
+import { registerSchema, loginSchema ,updateProfileSchema} from './auth.validation.js';
+import { registerUser_Service, loginUser_Service, getUserProfile_Service ,changePassword_Service , updateProfile_Service} from './auth.service.js';
 
 export async function register(req, res) {
   try {
@@ -100,3 +100,33 @@ export async function changePassword(req, res) {
   }
 };
 
+export async function updateProfile(req, res) {
+  try {
+    // Validate request body
+    const parsed = updateProfileSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: parsed.error.flatten().fieldErrors,
+      });
+    }
+
+    // Get logged-in user's ID
+    const userId = req.user.id;
+
+    // Call service
+    const updatedProfile = await updateProfile_Service(
+      userId,
+      parsed.data
+    );
+
+    // Send success response
+    return res.status(200).json(updatedProfile);
+
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({
+      message: err.message || "Internal Server Error",
+    });
+  }
+}

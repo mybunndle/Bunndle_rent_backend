@@ -234,5 +234,126 @@ export async function changePassword_Service(userId, oldPassword, newPassword) {
       return {
         message: 'Password changed successfully',
       };
-       }
-  
+}
+
+export async function updateProfile_Service(userId, data) {
+  // Current user  database se fetch karo
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+    },
+  });
+
+  if (!user) {
+    throw createError(404, "User not found");
+  }
+
+  const updateData = {};
+
+  // Name normalize
+  if (data.name !== undefined) {
+    const cleanName = String(data.name).trim();
+
+    if (cleanName.length < 2) {
+      throw createError(400, "Name must be at least 2 characters");
+    }
+
+    updateData.name = cleanName;
+  }
+
+  // Email normalize and uniqueness check
+  if (data.email !== undefined) {
+    const cleanEmail = normalizeEmail(data.email);
+
+    if (cleanEmail !== user.email) {
+      const existingEmailUser = await prisma.user.findUnique({
+        where: {
+          email: cleanEmail,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (existingEmailUser && existingEmailUser.id !== userId) {
+        throw createError(409, "Email already in use");
+      }
+    }
+
+    updateData.email = cleanEmail;
+  }
+
+  // Phone normalize and uniqueness check
+  if (data.phone !== undefined) {
+    const cleanPhone = normalizePhone(data.phone);
+
+    if (cleanPhone.length < 10) {
+      throw createError(
+        400,
+        "Phone number must be at least 10 digits"
+      );
+    }
+
+    if (cleanPhone !== user.phone) {
+      const existingPhoneUser = await prisma.user.findUnique({
+        where: {
+          phone: cleanPhone,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (existingPhoneUser && existingPhoneUser.id !== userId) {
+        throw createError(409, "Phone number already in use");
+      }
+    }
+
+    updateData.phone = cleanPhone;
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    throw createError(400, "No profile fields provided");
+  }
+
+  try {
+    const updatedUser = await prisma.user.update({
+      where: {
+        id: userId,
+      },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        isVerified: true,
+        isBlocked: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return {
+      success: true,
+      message: "Profile updated successfully",
+      user: updatedUser,
+    };
+  } catch (error) {
+    if (error.code === "P2002") {
+      throw createError(
+        409,
+        "Email or phone number is already in use"
+      );
+    }
+
+    throw error;
+  }
+}
