@@ -80,13 +80,7 @@ export async function getCurrentUser(req, res) {
     return res.status(err.statusCode || 500).json({ message: err.message });
   }
 }
-<<<<<<< HEAD
 
-
-export async function changePassword(req, res) {
-  
-}
-=======
 export async function changePassword(req, res) {
   try {
     const { oldPassword, newPassword } = req.body;
@@ -105,4 +99,4 @@ export async function changePassword(req, res) {
      });
   }
 };
->>>>>>> 9e02516f456842c0ad1787e1af9ba30750d9962c
+

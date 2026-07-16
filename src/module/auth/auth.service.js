@@ -1,12 +1,7 @@
-<<<<<<< HEAD
+
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../../config/prisma.js";
-=======
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import  prisma  from '../../config/prisma.js';
->>>>>>> 9e02516f456842c0ad1787e1af9ba30750d9962c
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
@@ -34,7 +29,6 @@ function generateToken(user) {
   );
 }
 
-<<<<<<< HEAD
 const normalizeEmail = (email) => {
   return String(email || "").trim().toLowerCase();
 };
@@ -76,31 +70,6 @@ export async function registerUser_Service({
       email: true,
       phone: true,
     },
-=======
-export async function registerUser_Service({ name, email, phone, password }) {
-  console.log("Before findUnique");
-
-  console.log(prisma);
-console.log(prisma.user);
-console.log(Object.keys(prisma));
-
-const existingUser = await prisma.user.findUnique({
-  where: { email },
-});
-
-
-console.log(existingUser);
-  if (existingUser) {
-    const error = new Error('Email already registered');
-    error.statusCode = 409;
-    throw error;
-  }
-  console.log('No existing user found, proceeding to create a new user.');
-  const hashedPassword = await bcrypt.hash(password, 10);
-
-  const user = await prisma.user.create({
-    data: { name, email, phone, password: hashedPassword },
->>>>>>> 9e02516f456842c0ad1787e1af9ba30750d9962c
   });
 
   if (existingUser) {
