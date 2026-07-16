@@ -1,6 +1,7 @@
 import express from 'express';
 import prisma , { connectPrisma } from './config/prisma.js';
 import authRoutes from './module/auth/auth.routes.js';
+import assetRoutes from './module/asset/asset.routes.js';
 
 const app = express();
 app.use(express.json());
@@ -18,6 +19,7 @@ connectPrisma();
 
 
 app.use('/api/auth', authRoutes);
+app.use('/api/asset', assetRoutes);
 
 
 export default app;

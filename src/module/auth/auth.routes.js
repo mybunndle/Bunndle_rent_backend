@@ -9,4 +9,5 @@ router.post('/register', register);
 router.post('/login', login);
 router.get('/get_me', authenticate, getCurrentUser);
 
+
 export default router;

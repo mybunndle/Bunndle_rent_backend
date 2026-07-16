@@ -1,44 +1,132 @@
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import prisma from '../../config/prisma.js';
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import prisma from "../../config/prisma.js";
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
+
+const createError = (statusCode, message) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+};
 
 function generateToken(user) {
+  if (!JWT_SECRET) {
+    throw createError(500, "JWT_SECRET is missing");
+  }
+
   return jwt.sign(
-    { id: user.id, role: user.role },
+    {
+      id: user.id,
+      role: user.role,
+    },
     JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN   }
+    {
+      expiresIn: JWT_EXPIRES_IN,
+    }
   );
 }
 
-export async function registerUser_Service({ name, email, phone, password }) {
-  const existingUser = await prisma.user.findUnique({ where: { email } });
-  if (existingUser) {
-    const error = new Error('Email already registered');
-    error.statusCode = 409;
-    throw error;
+const normalizeEmail = (email) => {
+  return String(email || "").trim().toLowerCase();
+};
+
+const normalizePhone = (phone) => {
+  return String(phone || "").replace(/\D/g, "");
+};
+
+export async function registerUser_Service({
+  name,
+  email,
+  phone,
+  password,
+}) {
+  const cleanName = String(name || "").trim();
+  const cleanEmail = normalizeEmail(email);
+  const cleanPhone = normalizePhone(phone);
+
+  if (!cleanName || !cleanEmail || !cleanPhone || !password) {
+    throw createError(
+      400,
+      "Name, email, phone and password are required"
+    );
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
-
-  const user = await prisma.user.create({
-    data: { name, email, phone, password: hashedPassword },
+  const existingUser = await prisma.user.findFirst({
+    where: {
+      OR: [
+        {
+          email: cleanEmail,
+        },
+        {
+          phone: cleanPhone,
+        },
+      ],
+    },
+    select: {
+      id: true,
+      email: true,
+      phone: true,
+    },
   });
 
-  const token = generateToken(user);
+  if (existingUser) {
+    if (existingUser.email === cleanEmail) {
+      throw createError(409, "Email already registered");
+    }
 
-  return {
-    token,
-    message: 'User registered successfully',
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-    },
-  };
+    if (existingUser.phone === cleanPhone) {
+      throw createError(409, "Phone number already registered");
+    }
+
+    throw createError(409, "User already exists");
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 12);
+
+  try {
+    const user = await prisma.user.create({
+      data: {
+        name: cleanName,
+        email: cleanEmail,
+        phone: cleanPhone,
+        password: hashedPassword,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        createdAt: true,
+      },
+    });
+
+    const token = generateToken(user);
+
+    return {
+      token,
+      message: "User registered successfully",
+      user,
+    };
+  } catch (error) {
+    if (error.code === "P2002") {
+      const target = error.meta?.target;
+
+      if (Array.isArray(target) && target.includes("email")) {
+        throw createError(409, "Email already registered");
+      }
+
+      if (Array.isArray(target) && target.includes("phone")) {
+        throw createError(409, "Phone number already registered");
+      }
+
+      throw createError(409, "User already exists");
+    }
+
+    throw error;
+  }
 }
 
 export async function loginUser_Service({ email, password }) {

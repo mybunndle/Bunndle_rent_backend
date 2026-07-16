@@ -12,6 +12,7 @@ model User {
   email      String   @unique
   phone      String?  @unique
   password   String?
+  assets        Asset[]
 
   role       UserRole @default(USER)
   isVerified Boolean  @default(false)
