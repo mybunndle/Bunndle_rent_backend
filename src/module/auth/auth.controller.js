@@ -70,12 +70,14 @@ export async function login(req, res) {
   }
 }
 export async function getCurrentUser(req, res) {
-  try{
-    const userId = req.user.id; 
+  try {
+    const userId = req.user.id;
     const userProfile = await getUserProfile_Service(userId);
-    return res.status(200).json({ 
-      message: 'User profile fetched successfully',
-      user: userProfile });
+
+    return res.status(200).json({
+      message: "User profile fetched successfully",
+      user: userProfile.user,
+    });
   } catch (err) {
     return res.status(err.statusCode || 500).json({ message: err.message });
   }

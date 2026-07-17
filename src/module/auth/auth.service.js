@@ -3,7 +3,7 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 
 import userModel from "../../models/userModel.js";
-import passwordResetOtpModel from "../../models/passwordResetOtpModel.js";
+import passwordResetOtpModel from "../../models/passwordResetOtp.model.js";
 import { sendForgotPasswordOtp } from "../../utils/email.js";
 
 const JWT_SECRET = process.env.JWT_SECRET;

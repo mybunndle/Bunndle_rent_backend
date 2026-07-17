@@ -1,81 +1,41 @@
 import mongoose from "mongoose";
 
-const assetFileSchema = new mongoose.Schema(
+const userSchema = new mongoose.Schema(
   {
-    url: String,
-    filename: String,
-    fileId: String,
-  },
-  {
-    _id: false,
-  }
-);
-
-const assetSchema = new mongoose.Schema(
-  {
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
-
-    model: {
+    name: { type: String, required: true, trim: true },
+    email: {
       type: String,
       required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
     },
-
-    brand: {
+    phone: {
       type: String,
       required: true,
+      unique: true,
+      trim: true,
     },
-
-    price: {
-      type: String,
-    },
-
-    assetName: {
-      type: String,
-    },
-
-    category: {
+    password: {
       type: String,
       required: true,
+      select: false,
     },
-
-    subCategory: {
+    role: {
       type: String,
+      enum: ["user", "admin"],
+      default: "user",
     },
-
-    purchaseYear: {
-      type: String,
-      required: true,
-    },
-
-    isapproved: {
-      type: String,
-      enum: [
-        "approved",
-        "rejected",
-        "pending",
-        "approvedButNotInApp",
-      ],
-      default: "pending",
-    },
-
-    deleteRequest: {
+    isVerified: {
       type: Boolean,
       default: false,
     },
-
-    deleteRequestAt: {
-      type: Date,
+    isBlocked: {
+      type: Boolean,
+      default: false,
     },
-
-    files: [assetFileSchema],
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-export default mongoose.model("Asset", assetSchema);
+export default mongoose.model("User", userSchema);
