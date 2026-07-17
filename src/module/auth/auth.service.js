@@ -1,15 +1,30 @@
-
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import jwt from "jsonwebtoken";
-import prisma from "../../config/prisma.js";
+
+import userModel from "../../models/userModel.js";
+import passwordResetOtpModel from "../../models/passwordResetOtpModel.js";
+import { sendForgotPasswordOtp } from "../../utils/email.js";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
+
+/* =========================================================
+   COMMON HELPERS
+========================================================= */
 
 const createError = (statusCode, message) => {
   const error = new Error(message);
   error.statusCode = statusCode;
   return error;
+};
+
+const normalizeEmail = (email) => {
+  return String(email || "").trim().toLowerCase();
+};
+
+const normalizePhone = (phone) => {
+  return String(phone || "").replace(/\D/g, "");
 };
 
 function generateToken(user) {
@@ -19,7 +34,7 @@ function generateToken(user) {
 
   return jwt.sign(
     {
-      id: user.id,
+      id: user._id || user.id,
       role: user.role,
     },
     JWT_SECRET,
@@ -29,13 +44,9 @@ function generateToken(user) {
   );
 }
 
-const normalizeEmail = (email) => {
-  return String(email || "").trim().toLowerCase();
-};
-
-const normalizePhone = (phone) => {
-  return String(phone || "").replace(/\D/g, "");
-};
+/* =========================================================
+   REGISTER USER
+========================================================= */
 
 export async function registerUser_Service({
   name,
@@ -46,31 +57,44 @@ export async function registerUser_Service({
   const cleanName = String(name || "").trim();
   const cleanEmail = normalizeEmail(email);
   const cleanPhone = normalizePhone(phone);
+  const cleanPassword = String(password || "");
 
-  if (!cleanName || !cleanEmail || !cleanPhone || !password) {
+  if (!cleanName || !cleanEmail || !cleanPhone || !cleanPassword) {
     throw createError(
       400,
       "Name, email, phone and password are required"
     );
   }
 
-  const existingUser = await prisma.user.findFirst({
-    where: {
-      OR: [
-        {
-          email: cleanEmail,
-        },
-        {
-          phone: cleanPhone,
-        },
+  if (cleanName.length < 2) {
+    throw createError(
+      400,
+      "Name must be at least 2 characters"
+    );
+  }
+
+  if (cleanPhone.length < 10) {
+    throw createError(
+      400,
+      "Phone number must be at least 10 digits"
+    );
+  }
+
+  if (cleanPassword.length < 6) {
+    throw createError(
+      400,
+      "Password must be at least 6 characters"
+    );
+  }
+
+  const existingUser = await userModel
+    .findOne({
+      $or: [
+        { email: cleanEmail },
+        { phone: cleanPhone },
       ],
-    },
-    select: {
-      id: true,
-      email: true,
-      phone: true,
-    },
-  });
+    })
+    .select("email phone");
 
   if (existingUser) {
     if (existingUser.email === cleanEmail) {
@@ -84,42 +108,39 @@ export async function registerUser_Service({
     throw createError(409, "User already exists");
   }
 
-  const hashedPassword = await bcrypt.hash(password, 12);
+  const hashedPassword = await bcrypt.hash(cleanPassword, 12);
 
   try {
-    const user = await prisma.user.create({
-      data: {
-        name: cleanName,
-        email: cleanEmail,
-        phone: cleanPhone,
-        password: hashedPassword,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        createdAt: true,
-      },
+    const user = await userModel.create({
+      name: cleanName,
+      email: cleanEmail,
+      phone: cleanPhone,
+      password: hashedPassword,
     });
 
     const token = generateToken(user);
 
     return {
-      token,
+      success: true,
       message: "User registered successfully",
-      user,
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        createdAt: user.createdAt,
+      },
     };
   } catch (error) {
-    if (error.code === "P2002") {
-      const target = error.meta?.target;
-
-      if (Array.isArray(target) && target.includes("email")) {
+    // MongoDB duplicate-key error
+    if (error.code === 11000) {
+      if (error.keyPattern?.email || error.keyValue?.email) {
         throw createError(409, "Email already registered");
       }
 
-      if (Array.isArray(target) && target.includes("phone")) {
+      if (error.keyPattern?.phone || error.keyValue?.phone) {
         throw createError(409, "Phone number already registered");
       }
 
@@ -130,125 +151,180 @@ export async function registerUser_Service({
   }
 }
 
+/* =========================================================
+   LOGIN USER
+========================================================= */
+
 export async function loginUser_Service({ email, password }) {
-  const user = await prisma.user.findUnique({ where: { email } });
+  const cleanEmail = normalizeEmail(email);
+  const cleanPassword = String(password || "");
+
+  if (!cleanEmail || !cleanPassword) {
+    throw createError(
+      400,
+      "Email and password are required"
+    );
+  }
+
+  // +password needed when password has select: false in schema
+  const user = await userModel
+    .findOne({
+      email: cleanEmail,
+    })
+    .select("+password");
+
   if (!user) {
-    const error = new Error('Invalid email or password');
-    error.statusCode = 401;
-    throw error;
+    throw createError(
+      401,
+      "Invalid email or password"
+    );
   }
 
   if (user.isBlocked) {
-    const error = new Error('Your account has been blocked');
-    error.statusCode = 403;
-    throw error;
+    throw createError(
+      403,
+      "Your account has been blocked"
+    );
   }
 
-  const isPasswordValid = await bcrypt.compare(password, user.password);
+  const isPasswordValid = await bcrypt.compare(
+    cleanPassword,
+    user.password
+  );
+
   if (!isPasswordValid) {
-    const error = new Error('Invalid email or password');
-    error.statusCode = 401;
-    throw error;
+    throw createError(
+      401,
+      "Invalid email or password"
+    );
   }
 
   const token = generateToken(user);
 
   return {
+    success: true,
+    message: "Login successful",
     token,
-    message: 'Login successful',
     user: {
-      id: user.id,
+      id: user._id,
       name: user.name,
       email: user.email,
+      phone: user.phone,
       role: user.role,
     },
   };
 }
 
-export async function getUserProfile_Service(userId) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phone: true,
-      role: true,
-      isVerified: true,
-      isBlocked: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
+/* =========================================================
+   GET USER PROFILE
+========================================================= */
 
-  if (!user) {
-    const error = new Error('User not found');
-    error.statusCode = 404;
-    throw error;
+export async function getUserProfile_Service(userId) {
+  if (!userId) {
+    throw createError(400, "User ID is required");
   }
 
-  return user;
-}
-
-export async function changePassword_Service(userId, oldPassword, newPassword) {
-  const user = await prisma.user.findUnique({ 
-    where: {
-      id: userId,
-    },
-   });
-
-    //Check if user exists
-    if (!user) {
-       throw {
-        statusCode: 404,
-        message: 'User not found',
-      };
-    }
-
-    //Check if old password is correct
-    const isPasswordCorrect =  await bcrypt.compare(
-      oldPassword,
-      user.password
+  const user = await userModel
+    .findById(userId)
+    .select(
+      "name email phone role isVerified isBlocked createdAt updatedAt"
     );
-    if (!isPasswordCorrect) {
-      throw {
-        statusCode: 400,
-        message: 'Old password is incorrect',
-      };
-    }
-      //. hash the new password
-       const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-      //Update the user's password
-      await prisma.user.update({
-        where: {
-          id: userId,
-        },
-        data: {
-          password: hashedPassword,
-        },
-      });
-      
+  if (!user) {
+    throw createError(404, "User not found");
+  }
 
-      // Return a success message
-      return {
-        message: 'Password changed successfully',
-      };
+  return {
+    success: true,
+    message: "User profile fetched successfully",
+    user,
+  };
 }
 
-export async function updateProfile_Service(userId, data) {
-  // Current user  database se fetch karo
-  const user = await prisma.user.findUnique({
-    where: {
-      id: userId,
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phone: true,
-    },
-  });
+/* =========================================================
+   CHANGE PASSWORD
+========================================================= */
+
+export async function changePassword_Service(
+  userId,
+  oldPassword,
+  newPassword
+) {
+  if (!userId) {
+    throw createError(400, "User ID is required");
+  }
+
+  if (!oldPassword || !newPassword) {
+    throw createError(
+      400,
+      "Old password and new password are required"
+    );
+  }
+
+  if (String(newPassword).length < 6) {
+    throw createError(
+      400,
+      "New password must be at least 6 characters"
+    );
+  }
+
+  const user = await userModel
+    .findById(userId)
+    .select("+password");
+
+  if (!user) {
+    throw createError(404, "User not found");
+  }
+
+  const isOldPasswordCorrect = await bcrypt.compare(
+    oldPassword,
+    user.password
+  );
+
+  if (!isOldPasswordCorrect) {
+    throw createError(
+      400,
+      "Old password is incorrect"
+    );
+  }
+
+  const isSamePassword = await bcrypt.compare(
+    newPassword,
+    user.password
+  );
+
+  if (isSamePassword) {
+    throw createError(
+      400,
+      "New password cannot be the same as old password"
+    );
+  }
+
+  user.password = await bcrypt.hash(newPassword, 12);
+
+  await user.save();
+
+  return {
+    success: true,
+    message: "Password changed successfully",
+  };
+}
+
+/* =========================================================
+   UPDATE PROFILE
+========================================================= */
+
+export async function updateProfile_Service(
+  userId,
+  data = {}
+) {
+  if (!userId) {
+    throw createError(400, "User ID is required");
+  }
+
+  const user = await userModel
+    .findById(userId)
+    .select("name email phone");
 
   if (!user) {
     throw createError(404, "User not found");
@@ -256,40 +332,51 @@ export async function updateProfile_Service(userId, data) {
 
   const updateData = {};
 
-  // Name normalize
+  // Name update
   if (data.name !== undefined) {
-    const cleanName = String(data.name).trim();
+    const cleanName = String(data.name || "").trim();
 
     if (cleanName.length < 2) {
-      throw createError(400, "Name must be at least 2 characters");
+      throw createError(
+        400,
+        "Name must be at least 2 characters"
+      );
     }
 
     updateData.name = cleanName;
   }
 
-  // Email normalize and uniqueness check
+  // Email update
   if (data.email !== undefined) {
     const cleanEmail = normalizeEmail(data.email);
 
+    if (!cleanEmail) {
+      throw createError(
+        400,
+        "Email cannot be empty"
+      );
+    }
+
     if (cleanEmail !== user.email) {
-      const existingEmailUser = await prisma.user.findUnique({
-        where: {
-          email: cleanEmail,
-        },
-        select: {
-          id: true,
+      const existingEmailUser = await userModel.exists({
+        email: cleanEmail,
+        _id: {
+          $ne: userId,
         },
       });
 
-      if (existingEmailUser && existingEmailUser.id !== userId) {
-        throw createError(409, "Email already in use");
+      if (existingEmailUser) {
+        throw createError(
+          409,
+          "Email already in use"
+        );
       }
     }
 
     updateData.email = cleanEmail;
   }
 
-  // Phone normalize and uniqueness check
+  // Phone update
   if (data.phone !== undefined) {
     const cleanPhone = normalizePhone(data.phone);
 
@@ -301,17 +388,18 @@ export async function updateProfile_Service(userId, data) {
     }
 
     if (cleanPhone !== user.phone) {
-      const existingPhoneUser = await prisma.user.findUnique({
-        where: {
-          phone: cleanPhone,
-        },
-        select: {
-          id: true,
+      const existingPhoneUser = await userModel.exists({
+        phone: cleanPhone,
+        _id: {
+          $ne: userId,
         },
       });
 
-      if (existingPhoneUser && existingPhoneUser.id !== userId) {
-        throw createError(409, "Phone number already in use");
+      if (existingPhoneUser) {
+        throw createError(
+          409,
+          "Phone number already in use"
+        );
       }
     }
 
@@ -319,27 +407,31 @@ export async function updateProfile_Service(userId, data) {
   }
 
   if (Object.keys(updateData).length === 0) {
-    throw createError(400, "No profile fields provided");
+    throw createError(
+      400,
+      "No profile fields provided"
+    );
   }
 
   try {
-    const updatedUser = await prisma.user.update({
-      where: {
-        id: userId,
-      },
-      data: updateData,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        isVerified: true,
-        isBlocked: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
+    const updatedUser = await userModel
+      .findByIdAndUpdate(
+        userId,
+        {
+          $set: updateData,
+        },
+        {
+          new: true,
+          runValidators: true,
+        }
+      )
+      .select(
+        "name email phone role isVerified isBlocked createdAt updatedAt"
+      );
+
+    if (!updatedUser) {
+      throw createError(404, "User not found");
+    }
 
     return {
       success: true,
@@ -347,7 +439,21 @@ export async function updateProfile_Service(userId, data) {
       user: updatedUser,
     };
   } catch (error) {
-    if (error.code === "P2002") {
+    if (error.code === 11000) {
+      if (error.keyPattern?.email || error.keyValue?.email) {
+        throw createError(
+          409,
+          "Email already in use"
+        );
+      }
+
+      if (error.keyPattern?.phone || error.keyValue?.phone) {
+        throw createError(
+          409,
+          "Phone number already in use"
+        );
+      }
+
       throw createError(
         409,
         "Email or phone number is already in use"
@@ -356,4 +462,79 @@ export async function updateProfile_Service(userId, data) {
 
     throw error;
   }
+}
+
+/* =========================================================
+   FORGOT PASSWORD
+========================================================= */
+
+export async function forgotPassword_Service(email) {
+  const cleanEmail = normalizeEmail(email);
+
+  if (!cleanEmail) {
+    throw createError(
+      400,
+      "Email is required"
+    );
+  }
+
+  // 1. Check whether user exists
+  const user = await userModel
+    .findOne({
+      email: cleanEmail,
+    })
+    .select("name email");
+
+  if (!user) {
+    throw createError(
+      404,
+      "User not found"
+    );
+  }
+
+  // 2. Generate secure 6-digit OTP
+  const otp = crypto
+    .randomInt(100000, 1000000)
+    .toString();
+
+  // 3. Set OTP expiry to 10 minutes
+  const expiresAt = new Date(
+    Date.now() + 10 * 60 * 1000
+  );
+
+  // 4. Delete previous password-reset OTPs
+  await passwordResetOtpModel.deleteMany({
+    email: cleanEmail,
+  });
+
+  // 5. Save new OTP
+  await passwordResetOtpModel.create({
+    email: cleanEmail,
+    otp,
+    expiresAt,
+  });
+
+  try {
+    // 6. Send OTP through email
+    await sendForgotPasswordOtp(
+      user.email,
+      user.name,
+      otp
+    );
+  } catch (error) {
+    // Email fail hone par unused OTP remove kar do
+    await passwordResetOtpModel.deleteMany({
+      email: cleanEmail,
+    });
+
+    throw createError(
+      500,
+      "Unable to send OTP email"
+    );
+  }
+
+  return {
+    success: true,
+    message: "OTP sent successfully",
+  };
 }

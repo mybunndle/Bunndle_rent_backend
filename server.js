@@ -1,7 +1,21 @@
-import app from './src/app.js';
+import "dotenv/config";
 
-const PORT = process.env.PORT || 3001;
+import app from "./src/app.js";
+import connecttoMongoDB from "./src/config/mongodb.js";
 
-app.listen(PORT, () => {
-  console.log(`BUNDLE RENT server is running on port ${PORT}`);
-});
+const PORT = process.env.PORT || 5000;
+
+const startServer = async () => {
+  try {
+    await connecttoMongoDB();
+
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Server startup failed:", error.message);
+    process.exit(1);
+  }
+};
+
+startServer();

@@ -18,3 +18,7 @@ export const updateProfileSchema = z.object({
   phone: z.string().min(10).optional(),
 });
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().email("Invalid email"),
+});
+

@@ -1,4 +1,6 @@
-import prisma from "../../config/prisma.js";
+import assetModel from "../../models/assetModel.js";
+import userModel from "../../models/userModel.js";
+
 import {
   uploadAssetFile,
   deleteAssetFile,
@@ -10,21 +12,27 @@ const createError = (statusCode, message) => {
   return error;
 };
 
-
-
 const cleanValue = (value) => {
-  if (value === undefined || value === null) return undefined;
+  if (value === undefined || value === null) {
+    return undefined;
+  }
 
   const stringValue = String(value).trim();
 
   return stringValue || undefined;
 };
 
-export const addAssetService = async ({ userId, body, files }) => {
+export const addAssetService = async ({
+  userId,
+  body = {},
+  files = [],
+}) => {
+  // 1. Check authentication
   if (!userId) {
     throw createError(401, "Unauthorized user.");
   }
 
+  // 2. Clean request values
   const model = cleanValue(body.model);
   const brand = cleanValue(body.brand);
   const category = cleanValue(body.category);
@@ -33,22 +41,26 @@ export const addAssetService = async ({ userId, body, files }) => {
   const purchaseYear = cleanValue(body.purchaseYear);
   const price = cleanValue(body.price);
 
+  // 3. Validate required fields
   if (!model || !category || !purchaseYear) {
-    throw createError(400, "Model, category, and purchase year are required.");
+    throw createError(
+      400,
+      "Model, category, and purchase year are required."
+    );
   }
 
-  if (!files || files.length === 0) {
-    throw createError(400, "At least 1 asset image is required.");
+  // 4. Validate uploaded files
+  if (!Array.isArray(files) || files.length === 0) {
+    throw createError(
+      400,
+      "At least 1 asset image is required."
+    );
   }
 
-  const user = await prisma.user.findUnique({
-    where: {
-      id: String(userId),
-    },
-    select: {
-      id: true,
-    },
-  });
+  // 5. Check whether user exists
+  const user = await userModel
+    .findById(userId)
+    .select("_id name email");
 
   if (!user) {
     throw createError(404, "User not found.");
@@ -57,29 +69,43 @@ export const addAssetService = async ({ userId, body, files }) => {
   let uploadedFiles = [];
 
   try {
+    // 6. Upload all asset images
     uploadedFiles = await Promise.all(
       files.map((file) => uploadAssetFile(file))
     );
 
-    const asset = await prisma.asset.create({
-      data: {
-        userId: user.id,
-        model,
-        brand,
-        category,
-        subCategory,
-        assetName,
-        purchaseYear,
-        price,
-        files: uploadedFiles,
-      },
+    // 7. Create asset in MongoDB
+    const asset = await assetModel.create({
+      userId: user._id,
+      model,
+      brand,
+      category,
+      subCategory,
+      assetName,
+      purchaseYear,
+      price,
+      files: uploadedFiles,
     });
 
-    return asset;
+    return {
+      success: true,
+      message: "Asset added successfully.",
+      asset,
+    };
   } catch (error) {
+    // Uploaded images delete karo agar database save fail ho jaye
     if (uploadedFiles.length > 0) {
       await Promise.allSettled(
-        uploadedFiles.map((file) => deleteAssetFile(file.fileId))
+        uploadedFiles.map(async (file) => {
+          const fileId =
+            file.fileId ||
+            file.publicId ||
+            file.public_id;
+
+          if (fileId) {
+            await deleteAssetFile(fileId);
+          }
+        })
       );
     }
 

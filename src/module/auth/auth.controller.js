@@ -1,5 +1,5 @@
-import { registerSchema, loginSchema ,updateProfileSchema} from './auth.validation.js';
-import { registerUser_Service, loginUser_Service, getUserProfile_Service ,changePassword_Service , updateProfile_Service} from './auth.service.js';
+import { registerSchema, loginSchema ,updateProfileSchema , forgotPasswordSchema} from './auth.validation.js';
+import { registerUser_Service, loginUser_Service, getUserProfile_Service ,changePassword_Service , updateProfile_Service , forgotPassword_Service} from './auth.service.js';
 
 export async function register(req, res) {
   try {
@@ -127,6 +127,28 @@ export async function updateProfile(req, res) {
   } catch (err) {
     return res.status(err.statusCode || 500).json({
       message: err.message || "Internal Server Error",
+    });
+  }
+}
+
+export async function forgotPassword(req,res) {
+  try {
+    const parsed = forgotPasswordSchema.safeParse(req.body);
+
+    if(!parsed.success) {
+      return res.status(400).json({
+        message: "Validation Failed",
+        errors: parsed.error.flatten().fieldErrors,
+      });
+    }
+      console.log("Parsed Data:", parsed.data); 
+    const result = await forgotPassword_Service(parsed.data.email);
+    console.log("Service Result:", result);
+
+    return res.status(200).json(result);
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({
+      message: err.message,
     });
   }
 }
