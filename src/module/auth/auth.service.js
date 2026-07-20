@@ -1,6 +1,8 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
+import { OAuth2Client } from "google-auth-library";
+
 
 import userModel from "../../models/userModel.js";
 import passwordResetOtpModel from "../../models/passwordResetOtp.model.js";
@@ -369,6 +371,7 @@ export async function updateProfile_Service(userId, data = {}) {
 export async function forgotPassword_Service(email) {
   const cleanEmail = normalizeEmail(email);
 
+  
   if (!cleanEmail) {
     throw createError(400, "Email is required");
   }
@@ -384,9 +387,7 @@ export async function forgotPassword_Service(email) {
   }
 
   // Generate six-digit OTP
-  const otp = crypto
-    .randomInt(100000, 1000000)
-    .toString();
+  const otp = crypto.randomInt(100000, 1000000).toString();
 
   // OTP expiry: 10 minutes
   const expiresAt = new Date(
@@ -604,3 +605,127 @@ export async function resetPassword_Service({
     message: "Password reset successfully",
   };
 }
+
+
+
+
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+export const googleAuthService = async (idToken) => {
+  if (!idToken) {
+    const error = new Error("Google ID token is required");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  let ticket;
+
+  try {
+    ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+  } catch (error) {
+    const authError = new Error("Invalid or expired Google ID token");
+    authError.statusCode = 401;
+    throw authError;
+  }
+
+  const payload = ticket.getPayload();
+
+  if (!payload) {
+    const error = new Error("Unable to read Google user information");
+    error.statusCode = 401;
+    throw error;
+  }
+
+  const {
+    sub: googleId,
+    email,
+    name,
+    picture,
+    email_verified: emailVerified,
+  } = payload;
+
+  if (!googleId || !email) {
+    const error = new Error(
+      "Google account did not provide the required information"
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!emailVerified) {
+    const error = new Error("Google email is not verified");
+    error.statusCode = 401;
+    throw error;
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+
+  let user = await userModel.findOne({
+    $or: [
+      { googleId },
+      { email: normalizedEmail },
+    ],
+  });
+
+  if (user) {
+    if (user.isBlocked) {
+      const error = new Error("Your account has been blocked");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    let shouldSave = false;
+
+    if (!user.googleId) {
+      user.googleId = googleId;
+      shouldSave = true;
+    }
+
+    if (!user.profileImage && picture) {
+      user.profileImage = picture;
+      shouldSave = true;
+    }
+
+    if (!user.isVerified) {
+      user.isVerified = true;
+      shouldSave = true;
+    }
+
+    if (user.authProvider !== "google") {
+      user.authProvider = "google";
+      shouldSave = true;
+    }
+
+    if (shouldSave) {
+      await user.save();
+    }
+  } else {
+    user = await userModel.create({
+      name: name || normalizedEmail.split("@")[0],
+      email: normalizedEmail,
+      googleId,
+      profileImage: picture || null,
+      authProvider: "google",
+      isVerified: true,
+    });
+  }
+
+  const token = generateToken(user._id.toString());
+
+  return {
+    message: "Google authentication successful",
+    token,
+    user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      profileImage: user.profileImage,
+      authProvider: user.authProvider,
+      isVerified: user.isVerified,
+    },
+  };
+};

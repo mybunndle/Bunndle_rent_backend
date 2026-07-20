@@ -8,6 +8,7 @@ import {
   forgotPassword_Service,
   verifyResetOtp_Service,
   resetPassword_Service,
+  googleAuthService
 } from './auth.service.js';
 
 export async function register(req, res) {
@@ -145,6 +146,7 @@ export async function updateProfile(req, res) {
 export async function forgotPassword(req, res) {
   try {
     const parsed = forgotPasswordSchema.safeParse(req.body);
+  
 
     if (!parsed.success) {
       return res.status(400).json({
@@ -153,12 +155,14 @@ export async function forgotPassword(req, res) {
         errors: parsed.error.flatten().fieldErrors,
       });
     }
-
+    
     const result = await forgotPassword_Service(
       parsed.data.email
     );
+    
 
     return res.status(200).json(result);
+
   } catch (err) {
     return res.status(err.statusCode || 500).json({
       success: false,
@@ -261,3 +265,26 @@ export async function resetPassword(req, res) {
     });
   }
 }
+
+
+
+
+
+
+export const googleAuthController = async (req, res) => {
+  try {
+    const { idToken } = req.body;
+
+    const result = await googleAuthService(idToken);
+
+    return res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Google authentication failed",
+    });
+  }
+};
