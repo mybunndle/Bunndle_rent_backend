@@ -60,39 +60,24 @@ export async function registerUser_Service({
   const cleanPassword = String(password || "");
 
   if (!cleanName || !cleanEmail || !cleanPhone || !cleanPassword) {
-    throw createError(
-      400,
-      "Name, email, phone and password are required"
-    );
+    throw createError(400, "Name, email, phone and password are required");
   }
 
   if (cleanName.length < 2) {
-    throw createError(
-      400,
-      "Name must be at least 2 characters"
-    );
+    throw createError(400, "Name must be at least 2 characters");
   }
 
   if (cleanPhone.length < 10) {
-    throw createError(
-      400,
-      "Phone number must be at least 10 digits"
-    );
+    throw createError(400, "Phone number must be at least 10 digits");
   }
 
   if (cleanPassword.length < 6) {
-    throw createError(
-      400,
-      "Password must be at least 6 characters"
-    );
+    throw createError(400, "Password must be at least 6 characters");
   }
 
   const existingUser = await userModel
     .findOne({
-      $or: [
-        { email: cleanEmail },
-        { phone: cleanPhone },
-      ],
+      $or: [{ email: cleanEmail }, { phone: cleanPhone }],
     })
     .select("email phone");
 
@@ -134,7 +119,6 @@ export async function registerUser_Service({
       },
     };
   } catch (error) {
-    // MongoDB duplicate-key error
     if (error.code === 11000) {
       if (error.keyPattern?.email || error.keyValue?.email) {
         throw createError(409, "Email already registered");
@@ -160,13 +144,9 @@ export async function loginUser_Service({ email, password }) {
   const cleanPassword = String(password || "");
 
   if (!cleanEmail || !cleanPassword) {
-    throw createError(
-      400,
-      "Email and password are required"
-    );
+    throw createError(400, "Email and password are required");
   }
 
-  // +password needed when password has select: false in schema
   const user = await userModel
     .findOne({
       email: cleanEmail,
@@ -174,29 +154,17 @@ export async function loginUser_Service({ email, password }) {
     .select("+password");
 
   if (!user) {
-    throw createError(
-      401,
-      "Invalid email or password"
-    );
+    throw createError(401, "Invalid email or password");
   }
 
   if (user.isBlocked) {
-    throw createError(
-      403,
-      "Your account has been blocked"
-    );
+    throw createError(403, "Your account has been blocked");
   }
 
-  const isPasswordValid = await bcrypt.compare(
-    cleanPassword,
-    user.password
-  );
+  const isPasswordValid = await bcrypt.compare(cleanPassword, user.password);
 
   if (!isPasswordValid) {
-    throw createError(
-      401,
-      "Invalid email or password"
-    );
+    throw createError(401, "Invalid email or password");
   }
 
   const token = generateToken(user);
@@ -226,9 +194,7 @@ export async function getUserProfile_Service(userId) {
 
   const user = await userModel
     .findById(userId)
-    .select(
-      "name email phone role isVerified isBlocked createdAt updatedAt"
-    );
+    .select("name email phone role isVerified isBlocked createdAt updatedAt");
 
   if (!user) {
     throw createError(404, "User not found");
@@ -245,63 +211,38 @@ export async function getUserProfile_Service(userId) {
    CHANGE PASSWORD
 ========================================================= */
 
-export async function changePassword_Service(
-  userId,
-  oldPassword,
-  newPassword
-) {
+export async function changePassword_Service(userId, oldPassword, newPassword) {
   if (!userId) {
     throw createError(400, "User ID is required");
   }
 
   if (!oldPassword || !newPassword) {
-    throw createError(
-      400,
-      "Old password and new password are required"
-    );
+    throw createError(400, "Old password and new password are required");
   }
 
   if (String(newPassword).length < 6) {
-    throw createError(
-      400,
-      "New password must be at least 6 characters"
-    );
+    throw createError(400, "New password must be at least 6 characters");
   }
 
-  const user = await userModel
-    .findById(userId)
-    .select("+password");
+  const user = await userModel.findById(userId).select("+password");
 
   if (!user) {
     throw createError(404, "User not found");
   }
 
-  const isOldPasswordCorrect = await bcrypt.compare(
-    oldPassword,
-    user.password
-  );
+  const isOldPasswordCorrect = await bcrypt.compare(oldPassword, user.password);
 
   if (!isOldPasswordCorrect) {
-    throw createError(
-      400,
-      "Old password is incorrect"
-    );
+    throw createError(400, "Old password is incorrect");
   }
 
-  const isSamePassword = await bcrypt.compare(
-    newPassword,
-    user.password
-  );
+  const isSamePassword = await bcrypt.compare(newPassword, user.password);
 
   if (isSamePassword) {
-    throw createError(
-      400,
-      "New password cannot be the same as old password"
-    );
+    throw createError(400, "New password cannot be the same as old password");
   }
 
   user.password = await bcrypt.hash(newPassword, 12);
-
   await user.save();
 
   return {
@@ -314,17 +255,12 @@ export async function changePassword_Service(
    UPDATE PROFILE
 ========================================================= */
 
-export async function updateProfile_Service(
-  userId,
-  data = {}
-) {
+export async function updateProfile_Service(userId, data = {}) {
   if (!userId) {
     throw createError(400, "User ID is required");
   }
 
-  const user = await userModel
-    .findById(userId)
-    .select("name email phone");
+  const user = await userModel.findById(userId).select("name email phone");
 
   if (!user) {
     throw createError(404, "User not found");
@@ -332,74 +268,52 @@ export async function updateProfile_Service(
 
   const updateData = {};
 
-  // Name update
   if (data.name !== undefined) {
     const cleanName = String(data.name || "").trim();
 
     if (cleanName.length < 2) {
-      throw createError(
-        400,
-        "Name must be at least 2 characters"
-      );
+      throw createError(400, "Name must be at least 2 characters");
     }
 
     updateData.name = cleanName;
   }
 
-  // Email update
   if (data.email !== undefined) {
     const cleanEmail = normalizeEmail(data.email);
 
     if (!cleanEmail) {
-      throw createError(
-        400,
-        "Email cannot be empty"
-      );
+      throw createError(400, "Email cannot be empty");
     }
 
     if (cleanEmail !== user.email) {
       const existingEmailUser = await userModel.exists({
         email: cleanEmail,
-        _id: {
-          $ne: userId,
-        },
+        _id: { $ne: userId },
       });
 
       if (existingEmailUser) {
-        throw createError(
-          409,
-          "Email already in use"
-        );
+        throw createError(409, "Email already in use");
       }
     }
 
     updateData.email = cleanEmail;
   }
 
-  // Phone update
   if (data.phone !== undefined) {
     const cleanPhone = normalizePhone(data.phone);
 
     if (cleanPhone.length < 10) {
-      throw createError(
-        400,
-        "Phone number must be at least 10 digits"
-      );
+      throw createError(400, "Phone number must be at least 10 digits");
     }
 
     if (cleanPhone !== user.phone) {
       const existingPhoneUser = await userModel.exists({
         phone: cleanPhone,
-        _id: {
-          $ne: userId,
-        },
+        _id: { $ne: userId },
       });
 
       if (existingPhoneUser) {
-        throw createError(
-          409,
-          "Phone number already in use"
-        );
+        throw createError(409, "Phone number already in use");
       }
     }
 
@@ -407,27 +321,20 @@ export async function updateProfile_Service(
   }
 
   if (Object.keys(updateData).length === 0) {
-    throw createError(
-      400,
-      "No profile fields provided"
-    );
+    throw createError(400, "No profile fields provided");
   }
 
   try {
     const updatedUser = await userModel
       .findByIdAndUpdate(
         userId,
-        {
-          $set: updateData,
-        },
+        { $set: updateData },
         {
           new: true,
           runValidators: true,
         }
       )
-      .select(
-        "name email phone role isVerified isBlocked createdAt updatedAt"
-      );
+      .select("name email phone role isVerified isBlocked createdAt updatedAt");
 
     if (!updatedUser) {
       throw createError(404, "User not found");
@@ -441,23 +348,14 @@ export async function updateProfile_Service(
   } catch (error) {
     if (error.code === 11000) {
       if (error.keyPattern?.email || error.keyValue?.email) {
-        throw createError(
-          409,
-          "Email already in use"
-        );
+        throw createError(409, "Email already in use");
       }
 
       if (error.keyPattern?.phone || error.keyValue?.phone) {
-        throw createError(
-          409,
-          "Phone number already in use"
-        );
+        throw createError(409, "Phone number already in use");
       }
 
-      throw createError(
-        409,
-        "Email or phone number is already in use"
-      );
+      throw createError(409, "Email or phone number is already in use");
     }
 
     throw error;
@@ -472,13 +370,9 @@ export async function forgotPassword_Service(email) {
   const cleanEmail = normalizeEmail(email);
 
   if (!cleanEmail) {
-    throw createError(
-      400,
-      "Email is required"
-    );
+    throw createError(400, "Email is required");
   }
 
-  // 1. Check whether user exists
   const user = await userModel
     .findOne({
       email: cleanEmail,
@@ -486,55 +380,227 @@ export async function forgotPassword_Service(email) {
     .select("name email");
 
   if (!user) {
-    throw createError(
-      404,
-      "User not found"
-    );
+    throw createError(404, "User not found");
   }
 
-  // 2. Generate secure 6-digit OTP
+  // Generate six-digit OTP
   const otp = crypto
     .randomInt(100000, 1000000)
     .toString();
 
-  // 3. Set OTP expiry to 10 minutes
+  // OTP expiry: 10 minutes
   const expiresAt = new Date(
     Date.now() + 10 * 60 * 1000
   );
 
-  // 4. Delete previous password-reset OTPs
+  // Delete previous OTP
   await passwordResetOtpModel.deleteMany({
     email: cleanEmail,
   });
 
-  // 5. Save new OTP
+  // Save new OTP
   await passwordResetOtpModel.create({
     email: cleanEmail,
     otp,
     expiresAt,
+    isVerified: false,
   });
 
   try {
-    // 6. Send OTP through email
     await sendForgotPasswordOtp(
       user.email,
       user.name,
       otp
     );
   } catch (error) {
-    // Email fail hone par unused OTP remove kar do
     await passwordResetOtpModel.deleteMany({
       email: cleanEmail,
     });
 
-    throw createError(
-      500,
-      "Unable to send OTP email"
-    );
+    throw createError(500, "Unable to send OTP email");
   }
+
+  // Token used only for OTP verification
+  const resetToken = jwt.sign(
+    {
+      email: cleanEmail,
+      purpose: "password-reset",
+    },
+    JWT_SECRET,
+    {
+      expiresIn: "10m",
+    }
+  );
 
   return {
     success: true,
     message: "OTP sent successfully",
+    resetToken,
+  };
+}
+
+export async function verifyResetOtp_Service({
+  otp,
+  resetToken,
+}) {
+  if (!otp) {
+    throw createError(400, "OTP is required");
+  }
+
+  if (!resetToken) {
+    throw createError(401, "Reset token is required");
+  }
+
+  let decoded;
+
+  // Reset token verify karo
+  try {
+    decoded = jwt.verify(resetToken, JWT_SECRET);
+  } catch (error) {
+    throw createError(
+      401,
+      "Invalid or expired reset token"
+    );
+  }
+
+  // Check token correct purpose ke liye bana hai
+  if (decoded.purpose !== "password-reset") {
+    throw createError(
+      401,
+      "Invalid reset token purpose"
+    );
+  }
+
+  // Email token ke andar se milega
+  const cleanEmail = normalizeEmail(decoded.email);
+
+  if (!cleanEmail) {
+    throw createError(
+      401,
+      "Email is missing from reset token"
+    );
+  }
+
+  // Database me valid OTP find karo
+  const otpRecord = await passwordResetOtpModel.findOne({
+    email: cleanEmail,
+    otp: String(otp),
+    expiresAt: {
+      $gt: new Date(),
+    },
+  });
+
+  if (!otpRecord) {
+    throw createError(
+      400,
+      "Invalid or expired OTP"
+    );
+  }
+
+  // OTP ko verified mark karo
+  otpRecord.isVerified = true;
+  await otpRecord.save();
+
+  // Final password reset ke liye verified token generate karo
+  const verifiedToken = jwt.sign(
+    {
+      email: cleanEmail,
+      purpose: "otp-verified",
+    },
+    JWT_SECRET,
+    {
+      expiresIn: "10m",
+    }
+  );
+
+  return {
+    success: true,
+    message: "OTP verified and token verified successfully",
+    verifiedToken,
+  };
+}
+export async function resetPassword_Service({
+  newPassword,
+  verifiedToken,
+}) {
+  if (!newPassword) {
+    throw createError(400, "New password is required");
+  }
+
+  if (String(newPassword).length < 6) {
+    throw createError(
+      400,
+      "New password must be at least 6 characters"
+    );
+  }
+
+  if (!verifiedToken) {
+    throw createError(401, "Verified token is required");
+  }
+
+  let decoded;
+
+  try {
+    decoded = jwt.verify(verifiedToken, JWT_SECRET);
+  } catch (error) {
+    throw createError(
+      401,
+      "Invalid or expired verified token"
+    );
+  }
+
+  if (decoded.purpose !== "otp-verified") {
+    throw createError(
+      401,
+      "OTP verification is required"
+    );
+  }
+
+  const cleanEmail = normalizeEmail(decoded.email);
+
+  if (!cleanEmail) {
+    throw createError(
+      401,
+      "Email is missing from verified token"
+    );
+  }
+
+  const otpRecord = await passwordResetOtpModel.findOne({
+    email: cleanEmail,
+    isVerified: true,
+    expiresAt: {
+      $gt: new Date(),
+    },
+  });
+
+  if (!otpRecord) {
+    throw createError(
+      400,
+      "OTP verification has expired"
+    );
+  }
+
+  const user = await userModel.findOne({
+    email: cleanEmail,
+  });
+
+  if (!user) {
+    throw createError(404, "User not found");
+  }
+
+  user.password = await bcrypt.hash(
+    String(newPassword),
+    12
+  );
+
+  await user.save();
+
+  await passwordResetOtpModel.deleteMany({
+    email: cleanEmail,
+  });
+
+  return {
+    success: true,
+    message: "Password reset successfully",
   };
 }

@@ -1,5 +1,14 @@
 import { registerSchema, loginSchema ,updateProfileSchema , forgotPasswordSchema} from './auth.validation.js';
-import { registerUser_Service, loginUser_Service, getUserProfile_Service ,changePassword_Service , updateProfile_Service , forgotPassword_Service} from './auth.service.js';
+import { 
+  registerUser_Service, 
+  loginUser_Service, 
+  getUserProfile_Service,
+  changePassword_Service, 
+  updateProfile_Service , 
+  forgotPassword_Service,
+  verifyResetOtp_Service,
+  resetPassword_Service,
+} from './auth.service.js';
 
 export async function register(req, res) {
   try {
@@ -133,24 +142,122 @@ export async function updateProfile(req, res) {
   }
 }
 
-export async function forgotPassword(req,res) {
+export async function forgotPassword(req, res) {
   try {
     const parsed = forgotPasswordSchema.safeParse(req.body);
 
-    if(!parsed.success) {
+    if (!parsed.success) {
       return res.status(400).json({
-        message: "Validation Failed",
+        success: false,
+        message: "Validation failed",
         errors: parsed.error.flatten().fieldErrors,
       });
     }
-      console.log("Parsed Data:", parsed.data); 
-    const result = await forgotPassword_Service(parsed.data.email);
-    console.log("Service Result:", result);
+
+    const result = await forgotPassword_Service(
+      parsed.data.email
+    );
 
     return res.status(200).json(result);
   } catch (err) {
     return res.status(err.statusCode || 500).json({
-      message: err.message,
+      success: false,
+      message:
+        err.message || "Unable to process forgot password",
+    });
+  }
+}
+
+export async function verifyResetOtp(req, res) {
+  try {
+    const { otp } = req.body;
+
+    if (!otp) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP is required",
+      });
+    }
+
+    // Authorization header get karo
+    const authorization = req.headers.authorization;
+
+    if (
+      !authorization ||
+      !authorization.startsWith("Bearer ")
+    ) {
+      return res.status(401).json({
+        success: false,
+        message: "Reset token is required in Bearer authorization",
+      });
+    }
+
+    // "Bearer token" me se sirf token extract karo
+    const resetToken = authorization.split(" ")[1];
+
+    if (!resetToken) {
+      return res.status(401).json({
+        success: false,
+        message: "Reset token is required",
+      });
+    }
+
+    const result = await verifyResetOtp_Service({
+      otp,
+      resetToken,
+    });
+
+    return res.status(200).json(result);
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({
+      success: false,
+      message: err.message || "Unable to verify OTP",
+    });
+  }
+}
+
+export async function resetPassword(req, res) {
+  try {
+    const { newPassword } = req.body;
+
+    if (!newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password is required",
+      });
+    }
+
+    const authorization = req.headers.authorization;
+
+    if (
+      !authorization ||
+      !authorization.startsWith("Bearer ")
+    ) {
+      return res.status(401).json({
+        success: false,
+        message: "Verified token is required",
+      });
+    }
+
+    const verifiedToken = authorization.split(" ")[1];
+
+    if (!verifiedToken) {
+      return res.status(401).json({
+        success: false,
+        message: "Verified token is required",
+      });
+    }
+
+    const result = await resetPassword_Service({
+      newPassword,
+      verifiedToken,
+    });
+
+    return res.status(200).json(result);
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({
+      success: false,
+      message: err.message || "Unable to reset password",
     });
   }
 }
