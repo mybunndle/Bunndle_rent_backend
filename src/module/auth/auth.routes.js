@@ -25,7 +25,7 @@ router.post('/forgot_password',forgotPassword);
 router.post('/verify_reset_otp', verifyResetOtp); 
  router.post('/reset_password', resetPassword);
 
- router.get("/google/andriod", googleAuthController);
+ router.get("/google/android", googleAuthController);
 
 
 

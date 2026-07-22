@@ -2,7 +2,7 @@ import express from "express";
 import mongoose from "mongoose";
 
 import authRoutes from "./module/auth/auth.routes.js";
-// import assetRoutes from "./module/asset/asset.routes.js";
+import assetRoutes from "./module/asset/asset.routes.js";
 
 const app = express();
 
@@ -33,7 +33,7 @@ app.get("/health/db", (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
-// app.use("/api/asset", assetRoutes);
+app.use("/api/asset", assetRoutes);
 
 app.use((req, res) => {
   return res.status(404).json({

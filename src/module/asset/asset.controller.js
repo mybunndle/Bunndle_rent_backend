@@ -24,3 +24,22 @@ export const addAssetController = async (req, res) => {
     });
   }
 };
+
+
+export const deleteAssetController = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deletedAsset = await deleteAssetService(id);
+    return res.status(200).json({
+      success: true,
+      message: "Asset deleted successfully.",
+      data: deletedAsset,
+    });
+  } catch (error) {
+    console.error("DELETE ASSET ERROR:", error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Unable to delete asset.",
+    });
+  }
+};
