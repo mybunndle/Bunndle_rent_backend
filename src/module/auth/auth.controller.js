@@ -8,7 +8,8 @@ import {
   forgotPassword_Service,
   verifyResetOtp_Service,
   resetPassword_Service,
-  googleAuthService
+  googleAuthService,
+  appleLoginService
 } from './auth.service.js';
 
 export async function register(req, res) {
@@ -288,3 +289,34 @@ export const googleAuthController = async (req, res) => {
     });
   }
 };
+
+
+
+
+
+export const appleLogin = async (req, res) => {
+  try {
+    const { identityToken, fullName, email } = req.body;
+
+    const { token, user } = await appleLoginService({
+      identityToken,
+      fullName,
+      bodyEmail: email,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Apple login successful",
+      token,
+      user,
+    });
+  } catch (error) {
+    console.error("Apple login error:", error);
+
+    return res.status(error.statusCode || 401).json({
+      success: false,
+      message: error.message || "Apple login failed",
+    });
+  }
+};
+

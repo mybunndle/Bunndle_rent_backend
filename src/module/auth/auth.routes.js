@@ -8,7 +8,8 @@ import {
     forgotPassword ,
     verifyResetOtp ,
     resetPassword ,
-    googleAuthController
+    googleAuthController,
+    appleLogin
 } 
 from './auth.controller.js';
 import {authenticate} from '../../middleware/auth.middleware.js';
@@ -26,6 +27,7 @@ router.post('/verify_reset_otp', verifyResetOtp);
  router.post('/reset_password', resetPassword);
 
  router.get("/google/android", googleAuthController);
+ router.post("/apple_login", appleLogin);
 
 
 

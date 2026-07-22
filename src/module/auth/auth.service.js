@@ -2,11 +2,13 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 
 import userModel from "../../models/userModel.js";
 import passwordResetOtpModel from "../../models/passwordResetOtp.model.js";
 import { sendForgotPasswordOtp } from "../../utils/email.js";
+import { verifyAppleToken } from "../../utils/apple_Auth.js";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
@@ -610,7 +612,7 @@ export async function resetPassword_Service({
 
 
 
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
 
 export const googleAuthService = async (idToken) => {
   if (!idToken) {
@@ -729,3 +731,87 @@ export const googleAuthService = async (idToken) => {
     },
   };
 };
+
+
+
+
+
+
+
+export const appleLoginService = async ({
+  identityToken,
+  fullName,
+  bodyEmail,
+}) => {
+  if (!identityToken) {
+    const error = new Error("Apple identity token required");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const appleData = await verifyAppleToken(identityToken);
+
+  const appleId = appleData.appleId;
+  const email = appleData.email || bodyEmail || undefined;
+
+  if (!appleId) {
+    const error = new Error("Invalid Apple token");
+    error.statusCode = 401;
+    throw error;
+  }
+
+  let user = await userModel.findOne({ appleId });
+
+  if (!user && email) {
+    user = await userModel.findOne({
+      email: email.toLowerCase().trim(),
+    });
+  }
+
+  if (user) {
+    if (!user.appleId) {
+      user.appleId = appleId;
+    }
+
+    user.authProvider = "apple";
+
+    if (!user.email && email) {
+      user.email = email.toLowerCase().trim();
+    }
+
+    if (!user.name || user.name === "Apple User") {
+      user.name = fullName?.trim() || user.name || "Apple User";
+    }
+
+    await user.save();
+  } else {
+    user = await userModel.create({
+      name: fullName?.trim() || "Apple User",
+      ...(email
+        ? {
+            email: email.toLowerCase().trim(),
+          }
+        : {}),
+      appleId,
+      authProvider: "apple",
+    });
+  }
+
+  const token = jwt.sign(
+    {
+      id: user._id,
+      email: user.email || null,
+    },
+    config.jwtSecret,
+    {
+      expiresIn: "30d",
+    }
+  );
+
+  return {
+    token,
+    user,
+  };
+};
+
+
