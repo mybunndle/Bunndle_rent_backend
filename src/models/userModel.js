@@ -25,17 +25,24 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
 
-    googleId: {
-      type: String,
-      unique: true,
-      sparse: true,
-    },
+   googleId: {
+  type: String,
+  unique: true,
+  sparse: true,
+},
 
-    authProvider: {
-      type: String,
-      enum: ["local", "google","apple"],
-      default: "local",
-    },
+appleId: {
+  type: String,
+  unique: true,
+  sparse: true,
+  trim: true,
+},
+
+authProvider: {
+  type: String,
+  enum: ["local", "google", "apple"],
+  default: "local",
+},
 
     isVerified: {
       type: Boolean,

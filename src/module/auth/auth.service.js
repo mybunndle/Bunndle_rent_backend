@@ -45,6 +45,7 @@ export async function registerUser_Service({
   phone,
   password,
 }) {
+  console.log(name, email, phone, password);
   const cleanName = String(name || "").trim();
   const cleanEmail = normalizeEmail(email);
   const cleanPhone = normalizePhone(phone);
