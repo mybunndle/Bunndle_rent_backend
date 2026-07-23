@@ -272,25 +272,52 @@ export async function resetPassword(req, res) {
 
 
 
+// export const googleAuthController = async (req, res) => {
+//   try {
+//     const { idToken } = req.body;
+
+//     const result = await googleAuthService(idToken);
+
+//     return res.status(200).json({
+//       success: true,
+//       ...result,
+//     });
+//   } catch (error) {
+//     return res.status(error.statusCode || 500).json({
+//       success: false,
+//       message: error.message || "Google authentication failed",
+//     });
+//   }
+// };
+
 export const googleAuthController = async (req, res) => {
   try {
     const { idToken } = req.body;
+
+    if (!idToken) {
+      return res.status(400).json({
+        success: false,
+        message: "Google ID token is required",
+      });
+    }
 
     const result = await googleAuthService(idToken);
 
     return res.status(200).json({
       success: true,
-      ...result,
+      message: result.message,
+      token: result.token,
+      user: result.user,
     });
   } catch (error) {
+    console.error("GOOGLE AUTH ERROR:", error);
+
     return res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || "Google authentication failed",
     });
   }
 };
-
-
 
 
 

@@ -27,7 +27,8 @@ router.post('/verify_reset_otp', verifyResetOtp);
 router.post('/reset_password', resetPassword);
 
 
-router.get("/google/android", googleAuthController);
+router.post("/google/android",
+     googleAuthController);
 router.post("/apple_login", appleLogin);
 
 

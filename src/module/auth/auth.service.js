@@ -5,6 +5,7 @@ import { OAuth2Client } from "google-auth-library";
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 
+
 import userModel from "../../models/userModel.js";
 import passwordResetOtpModel from "../../models/passwordResetOtp.model.js";
 import { sendForgotPasswordOtp } from "../../utils/email.js";
@@ -733,6 +734,127 @@ export const googleAuthService = async (idToken) => {
 };
 
 
+
+
+
+export const googleAndroidAuthService = async ({
+  idToken,
+}) => {
+  let ticket;
+
+  try {
+    ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_ANDROID_SERVER_CLIENT_ID,
+    });
+  } catch (error) {
+    console.error("GOOGLE TOKEN VERIFY ERROR:", error);
+
+    const authError = new Error(
+      "Invalid or expired Google ID token."
+    );
+    authError.statusCode = 401;
+    throw authError;
+  }
+
+  const payload = ticket.getPayload();
+
+  if (!payload) {
+    const error = new Error(
+      "Unable to read Google account information."
+    );
+    error.statusCode = 401;
+    throw error;
+  }
+
+  const {
+    sub: googleId,
+    email,
+    name,
+    picture,
+    email_verified: emailVerified,
+  } = payload;
+
+  if (!email || !googleId) {
+    const error = new Error(
+      "Google account information is incomplete."
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!emailVerified) {
+    const error = new Error(
+      "Google email is not verified."
+    );
+    error.statusCode = 401;
+    throw error;
+  }
+
+  const normalizedEmail = email
+    .trim()
+    .toLowerCase();
+
+  let user = await userModel.findOne({
+    $or: [
+      { googleId },
+      { email: normalizedEmail },
+    ],
+  });
+
+  if (!user) {
+    user = await userModel.create({
+      name: name || normalizedEmail.split("@")[0],
+      email: normalizedEmail,
+      googleId,
+      profileImage: picture || null,
+      authProvider: "google",
+      isVerified: true,
+    });
+  } else {
+    let shouldSave = false;
+
+    if (!user.googleId) {
+      user.googleId = googleId;
+      shouldSave = true;
+    }
+
+    if (!user.profileImage && picture) {
+      user.profileImage = picture;
+      shouldSave = true;
+    }
+
+    if (!user.isVerified) {
+      user.isVerified = true;
+      shouldSave = true;
+    }
+
+    if (shouldSave) {
+      await user.save();
+    }
+  }
+
+  const token = jwt.sign(
+    {
+      id: user._id,
+      email: user.email,
+    },
+    process.env.JWT_SECRET,
+    {
+      expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+    }
+  );
+
+  return {
+    token,
+    user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      profileImage: user.profileImage,
+    },
+  };
+};
 
 
 
