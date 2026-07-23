@@ -24,10 +24,11 @@ router.put('/password_change', authenticate, changePassword);
 router.put('/update_profile', authenticate, updateProfile);
 router.post('/forgot_password',forgotPassword);
 router.post('/verify_reset_otp', verifyResetOtp); 
- router.post('/reset_password', resetPassword);
+router.post('/reset_password', resetPassword);
 
- router.get("/google/android", googleAuthController);
- router.post("/apple_login", appleLogin);
+
+router.get("/google/android", googleAuthController);
+router.post("/apple_login", appleLogin);
 
 
 
