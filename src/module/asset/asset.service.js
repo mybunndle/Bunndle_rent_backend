@@ -57,11 +57,13 @@ export const addAssetService = async ({
       "At least 1 asset image is required."
     );
   }
-
+ 
   // 5. Check whether user exists
   const user = await userModel
     .findById(userId)
     .select("_id name email");
+  
+  
 
   if (!user) {
     throw createError(404, "User not found.");

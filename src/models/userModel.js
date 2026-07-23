@@ -25,24 +25,24 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
 
-   googleId: {
-  type: String,
-  unique: true,
-  sparse: true,
-},
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
 
-appleId: {
-  type: String,
-  unique: true,
-  sparse: true,
-  trim: true,
-},
+    appleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+    },
 
-authProvider: {
-  type: String,
-  enum: ["local", "google", "apple"],
-  default: "local",
-},
+    authProvider: {
+      type: String,
+      enum: ["local", "google", "apple"],
+      default: "local",
+    },
 
     isVerified: {
       type: Boolean,
@@ -56,7 +56,7 @@ authProvider: {
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 const userModel = mongoose.model("User", userSchema);

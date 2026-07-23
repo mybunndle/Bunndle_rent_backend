@@ -14,7 +14,10 @@ export async function authenticate(req, res, next) {
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, JWT_SECRET);
 
-    const user = await userModel.findById(decoded.id).select("-password");
+   
+    const user = await userModel
+  .findById(decoded.userId)
+  .select("-password");
 
     if (!user) {
       return res.status(401).json({ message: "User no longer exists" });
