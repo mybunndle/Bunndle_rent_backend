@@ -1,4 +1,4 @@
-import { addAssetService } from "./asset.service.js";
+import { addAssetService ,getAssetsService} from "./asset.service.js";
 
 export const addAssetController = async (req, res) => {
   try {
@@ -40,6 +40,24 @@ export const deleteAssetController = async (req, res) => {
     return res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || "Unable to delete asset.",
+    });
+  }
+};
+
+
+export const getAssetsController = async (req, res) => {
+  try {
+    const assets = await getAssetsService(req.user);
+
+    return res.status(200).json({
+      success: true,
+      message: "Assets fetched successfully",
+      data: assets,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
     });
   }
 };

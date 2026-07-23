@@ -112,3 +112,18 @@ export const addAssetService = async ({
     throw error;
   }
 };
+
+
+
+
+export const getAssetsService = async ({ _id }) => {
+  try {
+    const assets = await assetModel
+      .find({ userId: _id })
+      .sort({ createdAt: -1 });
+
+    return assets;
+  } catch (error) {
+    throw error;
+  }
+};
