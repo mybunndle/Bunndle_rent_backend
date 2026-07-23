@@ -1,16 +1,21 @@
-import { registerSchema, loginSchema ,updateProfileSchema , forgotPasswordSchema} from './auth.validation.js';
-import { 
-  registerUser_Service, 
-  loginUser_Service, 
+import {
+  registerSchema,
+  loginSchema,
+  updateProfileSchema,
+  forgotPasswordSchema,
+} from "./auth.validation.js";
+import {
+  registerUser_Service,
+  loginUser_Service,
   getUserProfile_Service,
-  changePassword_Service, 
-  updateProfile_Service , 
+  changePassword_Service,
+  updateProfile_Service,
   forgotPassword_Service,
   verifyResetOtp_Service,
   resetPassword_Service,
   googleAuthService,
-  appleLoginService
-} from './auth.service.js';
+  appleLoginService,
+} from "./auth.service.js";
 
 export async function register(req, res) {
   try {
@@ -69,7 +74,7 @@ export async function login(req, res) {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({
-        message: 'Validation failed',
+        message: "Validation failed",
         errors: parsed.error.flatten().fieldErrors,
       });
     }
@@ -100,18 +105,18 @@ export async function changePassword(req, res) {
     const userId = req.user.id;
 
     const result = await changePassword_Service(
-        userId
-      , oldPassword
-      , newPassword
+      userId,
+      oldPassword,
+      newPassword,
     );
 
     return res.status(200).json(result);
   } catch (err) {
-    return res.status(err.statusCode || 500).json({ 
+    return res.status(err.statusCode || 500).json({
       message: err.message,
-     });
+    });
   }
-};
+}
 
 export async function updateProfile(req, res) {
   try {
@@ -129,14 +134,10 @@ export async function updateProfile(req, res) {
     const userId = req.user.id;
 
     // Call service
-    const updatedProfile = await updateProfile_Service(
-      userId,
-      parsed.data
-    );
+    const updatedProfile = await updateProfile_Service(userId, parsed.data);
 
     // Send success response
     return res.status(200).json(updatedProfile);
-
   } catch (err) {
     return res.status(err.statusCode || 500).json({
       message: err.message || "Internal Server Error",
@@ -147,7 +148,6 @@ export async function updateProfile(req, res) {
 export async function forgotPassword(req, res) {
   try {
     const parsed = forgotPasswordSchema.safeParse(req.body);
-  
 
     if (!parsed.success) {
       return res.status(400).json({
@@ -156,19 +156,14 @@ export async function forgotPassword(req, res) {
         errors: parsed.error.flatten().fieldErrors,
       });
     }
-    
-    const result = await forgotPassword_Service(
-      parsed.data.email
-    );
-    
+
+    const result = await forgotPassword_Service(parsed.data.email);
 
     return res.status(200).json(result);
-
   } catch (err) {
     return res.status(err.statusCode || 500).json({
       success: false,
-      message:
-        err.message || "Unable to process forgot password",
+      message: err.message || "Unable to process forgot password",
     });
   }
 }
@@ -187,10 +182,7 @@ export async function verifyResetOtp(req, res) {
     // Authorization header get karo
     const authorization = req.headers.authorization;
 
-    if (
-      !authorization ||
-      !authorization.startsWith("Bearer ")
-    ) {
+    if (!authorization || !authorization.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
         message: "Reset token is required in Bearer authorization",
@@ -234,10 +226,7 @@ export async function resetPassword(req, res) {
 
     const authorization = req.headers.authorization;
 
-    if (
-      !authorization ||
-      !authorization.startsWith("Bearer ")
-    ) {
+    if (!authorization || !authorization.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
         message: "Verified token is required",
@@ -266,11 +255,6 @@ export async function resetPassword(req, res) {
     });
   }
 }
-
-
-
-
-
 
 // export const googleAuthController = async (req, res) => {
 //   try {
@@ -319,31 +303,33 @@ export const googleAuthController = async (req, res) => {
   }
 };
 
-
-
 export const appleLogin = async (req, res) => {
   try {
-    const { identityToken, fullName, email } = req.body;
+    const { identityToken, email, fullName } = req.body;
 
-    const { token, user } = await appleLoginService({
+    if (!identityToken) {
+      return res.status(400).json({
+        success: false,
+        message: "Apple identity token is required",
+      });
+    }
+
+    const result = await appleLoginService({
       identityToken,
+      email,
       fullName,
-      bodyEmail: email,
     });
 
     return res.status(200).json({
       success: true,
-      message: "Apple login successful",
-      token,
-      user,
+      ...result,
     });
   } catch (error) {
-    console.error("Apple login error:", error);
+    console.error("APPLE LOGIN ERROR:", error);
 
-    return res.status(error.statusCode || 401).json({
+    return res.status(error.statusCode || 500).json({
       success: false,
-      message: error.message || "Apple login failed",
+      message: error.message || "Apple authentication failed",
     });
   }
 };
-

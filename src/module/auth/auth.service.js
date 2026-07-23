@@ -5,6 +5,7 @@ import { OAuth2Client } from "google-auth-library";
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 
+import { generateToken } from "../../utils/generate.token.js";
 
 import userModel from "../../models/userModel.js";
 import passwordResetOtpModel from "../../models/passwordResetOtp.model.js";
@@ -32,22 +33,7 @@ const normalizePhone = (phone) => {
   return String(phone || "").replace(/\D/g, "");
 };
 
-function generateToken(user) {
-  if (!JWT_SECRET) {
-    throw createError(500, "JWT_SECRET is missing");
-  }
 
-  return jwt.sign(
-    {
-      id: user._id || user.id,
-      role: user.role,
-    },
-    JWT_SECRET,
-    {
-      expiresIn: JWT_EXPIRES_IN,
-    }
-  );
-}
 
 /* =========================================================
    REGISTER USER
@@ -860,80 +846,171 @@ export const googleAndroidAuthService = async ({
 
 
 
+
+
 export const appleLoginService = async ({
   identityToken,
+  email,
   fullName,
-  bodyEmail,
 }) => {
-  if (!identityToken) {
-    const error = new Error("Apple identity token required");
-    error.statusCode = 400;
-    throw error;
-  }
+  const appleData =
+    await verifyAppleToken(identityToken);
 
-  const appleData = await verifyAppleToken(identityToken);
+  const normalizedRequestEmail =
+    typeof email === "string"
+      ? email.trim().toLowerCase()
+      : null;
 
-  const appleId = appleData.appleId;
-  const email = appleData.email || bodyEmail || undefined;
+  const resolvedEmail =
+    appleData.email ||
+    normalizedRequestEmail;
 
-  if (!appleId) {
-    const error = new Error("Invalid Apple token");
-    error.statusCode = 401;
-    throw error;
-  }
+  const normalizedName =
+    getAppleFullName(fullName);
 
-  let user = await userModel.findOne({ appleId });
+  let user = await userModel.findOne({
+    appleId: appleData.appleId,
+  });
 
-  if (!user && email) {
+  if (!user && resolvedEmail) {
     user = await userModel.findOne({
-      email: email.toLowerCase().trim(),
+      email: resolvedEmail,
     });
   }
 
   if (user) {
+    if (user.isBlocked) {
+      const error = new Error(
+        "Your account has been blocked"
+      );
+
+      error.statusCode = 403;
+      throw error;
+    }
+
+    let shouldSave = false;
+
     if (!user.appleId) {
-      user.appleId = appleId;
+      user.appleId =
+        appleData.appleId;
+
+      shouldSave = true;
     }
 
-    user.authProvider = "apple";
-
-    if (!user.email && email) {
-      user.email = email.toLowerCase().trim();
+    if (
+      normalizedName &&
+      (!user.name ||
+        user.name.trim() === "")
+    ) {
+      user.name = normalizedName;
+      shouldSave = true;
     }
 
-    if (!user.name || user.name === "Apple User") {
-      user.name = fullName?.trim() || user.name || "Apple User";
+    if (
+      !user.email &&
+      resolvedEmail
+    ) {
+      user.email = resolvedEmail;
+      shouldSave = true;
     }
 
-    await user.save();
+    if (
+      user.authProvider !== "apple"
+    ) {
+      user.authProvider = "apple";
+      shouldSave = true;
+    }
+
+    if (
+      !user.isVerified &&
+      appleData.emailVerified
+    ) {
+      user.isVerified = true;
+      shouldSave = true;
+    }
+
+    if (shouldSave) {
+      await user.save();
+    }
   } else {
     user = await userModel.create({
-      name: fullName?.trim() || "Apple User",
-      ...(email
-        ? {
-            email: email.toLowerCase().trim(),
-          }
-        : {}),
-      appleId,
+      name:
+        normalizedName ||
+        resolvedEmail?.split("@")[0] ||
+        "Apple User",
+
+      email:
+        resolvedEmail || undefined,
+
+      appleId:
+        appleData.appleId,
+
       authProvider: "apple",
+
+      isVerified:
+        appleData.emailVerified,
     });
   }
 
-  const token = jwt.sign(
-    {
-      id: user._id,
-      email: user.email || null,
-    },
-    config.jwtSecret,
-    {
-      expiresIn: "30d",
-    }
+  const token = generateToken(
+    user._id.toString()
   );
 
   return {
+    message:
+      "Apple authentication successful",
+
     token,
-    user,
+
+    user: {
+      id: user._id,
+      name: user.name,
+      email: user.email || null,
+      profileImage:
+        user.profileImage || null,
+      authProvider:
+        user.authProvider,
+      isVerified:
+        user.isVerified,
+    },
   };
 };
 
+const getAppleFullName = (
+  fullName
+) => {
+  if (!fullName) {
+    return "";
+  }
+
+  if (typeof fullName === "string") {
+    return fullName.trim();
+  }
+
+  if (
+    typeof fullName === "object" &&
+    !Array.isArray(fullName)
+  ) {
+    const givenName =
+      typeof fullName.givenName ===
+      "string"
+        ? fullName.givenName.trim()
+        : "";
+
+    const familyName =
+      typeof fullName.familyName ===
+      "string"
+        ? fullName.familyName.trim()
+        : "";
+
+    return [
+      givenName,
+      familyName,
+    ]
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  return "";
+};
 
