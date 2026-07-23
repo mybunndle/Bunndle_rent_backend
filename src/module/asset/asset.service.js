@@ -281,3 +281,82 @@ export const editAssetService = async ({
     throw error;
   }
 };
+
+
+export const deleteAssetService = async ({
+  assetId,
+  userId,
+}) => {
+  // 1. Check logged-in user
+  if (!userId) {
+    throw createError(401, "Unauthorized user.");
+  }
+
+  // 2. Validate asset ID
+  if (
+    !assetId ||
+    !mongoose.Types.ObjectId.isValid(assetId)
+  ) {
+    throw createError(400, "Invalid asset ID.");
+  }
+
+  // 3. Find asset
+  const asset = await assetModel.findById(assetId);
+
+  if (!asset) {
+    throw createError(404, "Asset not found.");
+  }
+
+  // 4. Check asset ownership
+  if (
+    !asset.userId ||
+    String(asset.userId) !== String(userId)
+  ) {
+    throw createError(
+      403,
+      "You are not allowed to delete this asset."
+    );
+  }
+
+  // 5. Store asset response before deleting
+  const deletedAssetData = asset.toObject();
+
+  // 6. Delete asset from MongoDB
+  await assetModel.deleteOne({
+    _id: assetId,
+    userId,
+  });
+
+  // 7. Delete asset images from storage
+  if (
+    Array.isArray(asset.files) &&
+    asset.files.length > 0
+  ) {
+    const deletionResults = await Promise.allSettled(
+      asset.files.map(async (file) => {
+        const fileId =
+          file.fileId ||
+          file.publicId ||
+          file.public_id;
+
+        if (fileId) {
+          await deleteAssetFile(fileId);
+        }
+      })
+    );
+
+    const failedDeletions = deletionResults.filter(
+      (result) => result.status === "rejected"
+    );
+
+    if (failedDeletions.length > 0) {
+      console.error(
+        "Some asset images could not be deleted:",
+        failedDeletions
+      );
+    }
+  }
+
+  // 8. Return deleted asset
+  return deletedAssetData;
+};

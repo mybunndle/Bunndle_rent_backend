@@ -1,7 +1,7 @@
 import express from "express";
 import {authenticate} from "../../middleware/auth.middleware.js";
 import { uploadAssetImages } from "../../middleware/upload.js";
-import { addAssetController , getAssetsController , editAssetController} from "./asset.controller.js";
+import { addAssetController , getAssetsController , editAssetController , deleteAssetController} from "./asset.controller.js";
 
 const router = express.Router();
 
@@ -18,6 +18,13 @@ router.patch(
   authenticate,
   uploadAssetImages.array("files", 5),
   editAssetController
+);
+
+
+router.delete(
+  "/delete_asset/:id",
+  authenticate,
+  deleteAssetController
 );
 
 
