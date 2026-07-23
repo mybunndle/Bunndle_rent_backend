@@ -1,4 +1,8 @@
-import { addAssetService ,getAssetsService} from "./asset.service.js";
+import { 
+  addAssetService ,
+  getAssetsService ,
+  editAssetService ,
+} from "./asset.service.js";
 
 export const addAssetController = async (req, res) => {
   try {
@@ -58,6 +62,33 @@ export const getAssetsController = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
+    });
+  }
+};
+
+export const editAssetController = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const assetId = req.params.id;
+
+    const updatedAsset = await editAssetService({
+      assetId,
+      userId,
+      body: req.body,
+      files: req.files || [],
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Asset updated successfully.",
+      data: updatedAsset,
+    });
+  } catch (error) {
+    console.error("EDIT ASSET ERROR:", error);
+
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Unable to update asset.",
     });
   }
 };

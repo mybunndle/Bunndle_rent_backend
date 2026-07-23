@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import assetModel from "../../models/assetModel.js";
 import userModel from "../../models/userModel.js";
 
@@ -124,6 +125,157 @@ export const getAssetsService = async ({ _id }) => {
 
     return assets;
   } catch (error) {
+    throw error;
+  }
+};
+
+
+export const editAssetService = async ({
+  assetId,
+  userId,
+  body = {},
+  files = [],
+}) => {
+  let newlyUploadedFiles = [];
+
+  // 1. Check logged-in user
+  if (!userId) {
+    throw createError(401, "Unauthorized user.");
+  }
+
+  // 2. Validate asset ID
+  if (!assetId || !mongoose.Types.ObjectId.isValid(assetId)) {
+    throw createError(400, "Invalid asset ID.");
+  }
+
+  // 3. Find the asset belonging to the logged-in user
+  const existingAsset = await assetModel.findOne({
+    _id: assetId,
+    userId,
+  });
+
+  if (!existingAsset) {
+    throw createError(
+      404,
+      "Asset not found or you are not allowed to edit it."
+    );
+  }
+
+  // 4. Prepare partial update data
+  const updateData = {};
+
+  const allowedFields = [
+    "model",
+    "brand",
+    "category",
+    "subCategory",
+    "assetName",
+    "purchaseYear",
+    "price",
+  ];
+
+  for (const field of allowedFields) {
+    if (body[field] !== undefined) {
+      const cleanedValue = cleanValue(body[field]);
+
+      if (cleanedValue === undefined) {
+        throw createError(
+          400,
+          `${field} cannot be empty.`
+        );
+      }
+
+      updateData[field] = cleanedValue;
+    }
+  }
+
+  // 5. Required fields cannot become empty
+  
+
+  // 6. Validate uploaded files
+  if (!Array.isArray(files)) {
+    throw createError(400, "Invalid uploaded files.");
+  }
+
+  try {
+    // 7. Upload new images when provided
+    if (files.length > 0) {
+      newlyUploadedFiles = await Promise.all(
+        files.map((file) => uploadAssetFile(file))
+      );
+
+      // New images will replace existing images
+      updateData.files = newlyUploadedFiles;
+    }
+
+    // 8. Check whether user sent anything to update
+    if (Object.keys(updateData).length === 0) {
+      throw createError(
+        400,
+        "Provide at least one field or image to update."
+      );
+    }
+
+    // 9. Update only provided fields
+    const updatedAsset = await assetModel.findOneAndUpdate(
+      {
+        _id: assetId,
+        userId,
+      },
+      {
+        $set: updateData,
+      },
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    if (!updatedAsset) {
+      throw createError(404, "Asset could not be updated.");
+    }
+
+    // 10. Delete old images only after DB update succeeds
+    if (
+      newlyUploadedFiles.length > 0 &&
+      Array.isArray(existingAsset.files) &&
+      existingAsset.files.length > 0
+    ) {
+      await Promise.allSettled(
+        existingAsset.files.map(async (file) => {
+          const fileId =
+            file.fileId ||
+            file.publicId ||
+            file.public_id;
+
+          if (fileId) {
+            await deleteAssetFile(fileId);
+          }
+        })
+      );
+    }
+
+    return updatedAsset;
+  } catch (error) {
+    /*
+     * If new images were uploaded but the database update failed,
+     * remove the newly uploaded images.
+     */
+    if (newlyUploadedFiles.length > 0) {
+      await Promise.allSettled(
+        newlyUploadedFiles.map(async (file) => {
+          const fileId =
+            file.fileId ||
+            file.publicId ||
+            file.public_id;
+
+          if (fileId) {
+            await deleteAssetFile(fileId);
+          }
+        })
+      );
+    }
+
     throw error;
   }
 };
