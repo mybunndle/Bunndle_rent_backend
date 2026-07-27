@@ -30,7 +30,7 @@ export const uploadProfilePicture = async (file) => {
 
 export const deleteProfilePicture = async (fileId) => {
   try {
-
+   
     // ✅ Prevent ImageKit error
     if (!fileId) {
       console.log(
@@ -41,7 +41,7 @@ export const deleteProfilePicture = async (fileId) => {
 
     await imagekit.deleteFile(fileId);
 
-    console.log("Image deleted successfully");
+    
 
     return true;
 

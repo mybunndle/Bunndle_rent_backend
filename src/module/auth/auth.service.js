@@ -288,6 +288,7 @@ export const updateProfile_Service = async ({ userId, body = {}, file }) => {
     if (uploadedProfile && user.profileImage?.fileId) {
       await deleteProfilePicture(user.profileImage.fileId);
     }
+    
 
     return updatedUser;
   } catch (error) {

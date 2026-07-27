@@ -19,10 +19,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       select: false,
     },
-    type:{
+    type: {
       type: String,
       enum: ["user", "admin"],
-      default: "user"
+      default: "user",
     },
 
     profileImage: {
