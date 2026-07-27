@@ -4,6 +4,7 @@ import {
   updateProfileSchema,
   forgotPasswordSchema,
 } from "./auth.validation.js";
+
 import {
   registerUser_Service,
   loginUser_Service,
@@ -120,7 +121,6 @@ export async function changePassword(req, res) {
 
 export async function updateProfile(req, res) {
   try {
-    // Validate request body
     const parsed = updateProfileSchema.safeParse(req.body);
 
     if (!parsed.success) {
@@ -130,13 +130,14 @@ export async function updateProfile(req, res) {
       });
     }
 
-    // Get logged-in user's ID
     const userId = req.user.id;
 
-    // Call service
-    const updatedProfile = await updateProfile_Service(userId, parsed.data);
+    const updatedProfile = await updateProfile_Service({
+      userId,
+      body: parsed.data,
+      file: req.file,
+    });
 
-    // Send success response
     return res.status(200).json(updatedProfile);
   } catch (err) {
     return res.status(err.statusCode || 500).json({

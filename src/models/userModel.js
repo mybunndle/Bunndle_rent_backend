@@ -26,8 +26,14 @@ const userSchema = new mongoose.Schema(
     },
 
     profileImage: {
-      type: String,
-      default: null,
+      url: {
+        type: String,
+        default: null,
+      },
+      fileId: {
+        type: String,
+        default: null,
+      },
     },
 
     googleId: {
