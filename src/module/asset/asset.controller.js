@@ -31,6 +31,7 @@ export const addAssetController = async (req, res) => {
 };
 
 
+
 export const deleteAssetController = async (req, res) => {
   try {
     const assetId = req.params.id;
