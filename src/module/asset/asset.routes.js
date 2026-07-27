@@ -11,12 +11,12 @@ router.post(
   uploadAssetImages.array("files", 5),
   addAssetController
 );
-router.get("/get_assets" , authenticate, getAssetsController)
+router.get("/get_assets" , getAssetsController)
 
 
 router.patch(
   "/edit_asset/:id",
-  authenticate,
+
   uploadAssetImages.array("files", 5),
   editAssetController
 );
@@ -24,7 +24,7 @@ router.patch(
 
 router.delete(
   "/delete_asset/:id",
-  authenticate,
+
   deleteAssetController
 );
 
