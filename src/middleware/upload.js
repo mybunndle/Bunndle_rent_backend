@@ -15,3 +15,21 @@ export const uploadAssetImages = multer({
     cb(null, true);
   }
 });
+
+
+export const uploadUserProfile = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 1 * 1024 * 1024, // 5MB per file
+    files: 1                   // max 5 files
+  },
+
+
+  // ✅ HERE is your fileFilter
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith("image/")) {
+      return cb(new Error("Only image files are allowed"), false);
+    }
+    cb(null, true);
+  }
+});
