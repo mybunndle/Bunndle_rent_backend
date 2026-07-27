@@ -122,7 +122,7 @@ export const addAssetService = async ({
 export const getAssetsService = async ({ _id }) => {
   try {
     const assets = await assetModel
-      .find({ userId: _id })
+    .find({})
       .sort({ createdAt: -1 });
 
     return assets;

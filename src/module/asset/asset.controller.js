@@ -60,11 +60,13 @@ export const deleteAssetController = async (req, res) => {
 
 export const getAssetsController = async (req, res) => {
   try {
-    const assets = await getAssetsService(req.user);
+    const userId = req.user?.id;
+    const assets = await getAssetsService({ userId });
 
     return res.status(200).json({
       success: true,
       message: "Assets fetched successfully",
+      count: assets.length,
       data: assets,
     });
   } catch (error) {
