@@ -179,18 +179,18 @@ export async function getUserProfile_Service(userId) {
     throw createError(400, "User ID is required");
   }
 
-  const user = await userModel
+  const data = await userModel
     .findById(userId)
     .select("name email phone role isVerified isBlocked createdAt updatedAt");
 
-  if (!user) {
+  if (!data) {
     throw createError(404, "User not found");
   }
 
   return {
     success: true,
     message: "User profile fetched successfully",
-    user,
+    data,
   };
 }
 

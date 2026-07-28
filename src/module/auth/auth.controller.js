@@ -79,8 +79,9 @@ export async function login(req, res) {
         errors: parsed.error.flatten().fieldErrors,
       });
     }
-
+ 
     const result = await loginUser_Service(parsed.data);
+    console.log(result)
     return res.status(200).json(result);
   } catch (err) {
     return res.status(err.statusCode || 500).json({ message: err.message });
@@ -93,7 +94,7 @@ export async function getCurrentUser(req, res) {
 
     return res.status(200).json({
       message: "User profile fetched successfully",
-      user: userProfile.user,
+      data: userProfile.data,
     });
   } catch (err) {
     return res.status(err.statusCode || 500).json({ message: err.message });
