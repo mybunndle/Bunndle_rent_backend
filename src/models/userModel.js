@@ -50,7 +50,7 @@ const userSchema = new mongoose.Schema(
     },
 
     /* ===== PROFILE ===== */
-    
+
     dob: {
       type: Date,
       default: null,
@@ -63,18 +63,21 @@ const userSchema = new mongoose.Schema(
         message: "Invalid date format",
       },
     },
-    type:{
+    type: {
       type: String,
       enum: ["USER", "ADMIN"],
       default: "USER",
     },
 
-    profileImage:{
+    profileImage: {
       type: String,
       default: null,
     },
-    
-    profileImageId: String,
+
+    profileImageId: {
+      type: String,
+      default: null,
+    },
 
     kycStatus: {
       type: String,

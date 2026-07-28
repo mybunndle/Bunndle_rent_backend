@@ -120,33 +120,43 @@ export async function changePassword(req, res) {
   }
 }
 
-export async function updateProfile(req, res) {
+
+export const updateProfile = async (
+  req,
+  res,
+  next
+) => {
   try {
-    const parsed = updateProfileSchema.safeParse(req.body);
+    const userId =
+      req.user?._id ||
+      req.user?.id ||
+      req.user?.userId;
 
-    if (!parsed.success) {
-      return res.status(400).json({
-        message: "Validation failed",
-        errors: parsed.error.flatten().fieldErrors,
+    console.log("Update profile userId:", userId);
+    console.log("Update profile body:", req.body);
+    console.log(
+      "Update profile file:",
+      req.file?.originalname
+    );
+
+    const updatedUser =
+      await updateProfile_Service({
+        userId,
+        body: req.body,
+        file: req.file,
       });
-    }
 
-    const userId = req.user.id;
+   
 
-    const updatedProfile = await updateProfile_Service({
-      userId,
-      body: parsed.data,
-      file: req.file,
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully.",
+      data: updatedUser,
     });
-
-    return res.status(200).json(updatedProfile);
-  } catch (err) {
-    return res.status(err.statusCode || 500).json({
-      message: err.message || "Internal Server Error",
-    });
+  } catch (error) {
+    next(error);
   }
-}
-
+};
 export async function forgotPassword(req, res) {
   try {
     const parsed = forgotPasswordSchema.safeParse(req.body);

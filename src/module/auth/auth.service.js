@@ -1,8 +1,9 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 import { OAuth2Client } from "google-auth-library";
-import { uploadProfilePicture,deleteProfilePicture} from "./img_service.js";
+import { uploadProfilePicture, deleteProfilePicture } from "./img_service.js";
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 import { generateToken } from "../../utils/generate.token.js";
@@ -40,7 +41,6 @@ const normalizePhone = (phone) => {
 ========================================================= */
 
 export async function registerUser_Service({ name, email, phone, password }) {
- 
   const cleanName = String(name || "").trim();
   const cleanEmail = normalizeEmail(email);
   const cleanPhone = normalizePhone(phone);
@@ -242,7 +242,11 @@ export async function changePassword_Service(userId, oldPassword, newPassword) {
    UPDATE PROFILE
 ========================================================= */
 
-export const updateProfile_Service = async ({ userId, body = {}, file }) => {
+export const updateProfile_Service = async ({
+  userId,
+  body = {},
+  file = null,
+}) => {
   if (!userId) {
     throw createError(401, "Unauthorized user.");
   }
@@ -253,48 +257,139 @@ export const updateProfile_Service = async ({ userId, body = {}, file }) => {
     throw createError(404, "User not found.");
   }
 
-  const updateData = {};
-
-  if (body.name) {
-    updateData.name = body.name.trim();
-  }
+  const oldProfileImageId = user.profileImageId;
 
   let uploadedProfile = null;
+  let updateSuccessful = false;
+  let hasUpdate = false;
 
   try {
-    // Upload new profile picture
+    // Update name
+    if (Object.prototype.hasOwnProperty.call(body, "name")) {
+      const name = String(body.name ?? "").trim();
+
+      if (!name) {
+        throw createError(400, "Name cannot be empty.");
+      }
+
+      user.name = name;
+      hasUpdate = true;
+    }
+
+    // Update DOB
+    if (Object.prototype.hasOwnProperty.call(body, "dob")) {
+      const dobValue = body.dob;
+
+      if (
+        dobValue === null ||
+        dobValue === "" ||
+        dobValue === "null"
+      ) {
+        user.dob = null;
+      } else {
+        const parsedDob = new Date(dobValue);
+
+        if (Number.isNaN(parsedDob.getTime())) {
+          throw createError(
+            400,
+            "Invalid DOB. Use YYYY-MM-DD format."
+          );
+        }
+
+        if (parsedDob > new Date()) {
+          throw createError(
+            400,
+            "Date of birth cannot be in the future."
+          );
+        }
+
+        user.dob = parsedDob;
+      }
+
+      hasUpdate = true;
+    }
+
+    // Upload new profile image
     if (file) {
       uploadedProfile = await uploadProfilePicture(file);
 
-      updateData.profileImage = {
-        url: uploadedProfile.url,
-        fileId: uploadedProfile.fileId,
-      };
-    }
-
-    // Update user
-    const updatedUser = await userModel.findByIdAndUpdate(
-      userId,
-      {
-        $set: updateData,
-      },
-      {
-        new: true,
-        runValidators: true,
+      if (
+        !uploadedProfile?.url ||
+        !uploadedProfile?.fileId
+      ) {
+        throw createError(
+          500,
+          "Profile image upload failed."
+        );
       }
-    );
 
-    // Delete old profile picture after successful update
-    if (uploadedProfile && user.profileImage?.fileId) {
-      await deleteProfilePicture(user.profileImage.fileId);
+      // Schema fields are separate strings
+      user.profileImage = uploadedProfile.url;
+      user.profileImageId = uploadedProfile.fileId;
+
+      hasUpdate = true;
     }
-    
 
-    return updatedUser;
+    if (!hasUpdate) {
+      throw createError(
+        400,
+        "Please provide name, dob, or profile image."
+      );
+    }
+
+    // Save updated user
+    const updatedUser = await user.save();
+
+    updateSuccessful = true;
+
+    // Delete old image after successful database update
+    if (
+      uploadedProfile?.fileId &&
+      oldProfileImageId &&
+      oldProfileImageId !== uploadedProfile.fileId
+    ) {
+      try {
+        await deleteProfilePicture(oldProfileImageId);
+      } catch (deleteError) {
+        console.error(
+          "Old profile image deletion failed:",
+          deleteError.message
+        );
+      }
+    }
+
+    // Convert Mongoose document into plain object
+    const userData = updatedUser.toObject({
+      versionKey: false,
+    });
+
+    // Clean DOB response: YYYY-MM-DD
+    userData.dob = userData.dob
+      ? new Date(userData.dob).toISOString().split("T")[0]
+      : null;
+
+    // Remove sensitive fields
+    delete userData.password;
+    delete userData.resetOtpHash;
+    delete userData.resetOtpExpiry;
+
+    return userData;
   } catch (error) {
-    // Rollback newly uploaded image if update fails
-    if (uploadedProfile?.fileId) {
-      await deleteProfilePicture(uploadedProfile.fileId);
+    // Delete newly uploaded image only when database update failed
+    if (
+      uploadedProfile?.fileId &&
+      !updateSuccessful
+    ) {
+      try {
+        await deleteProfilePicture(
+          uploadedProfile.fileId
+        );
+      } catch (rollbackError) {
+        console.error(
+          "Profile image rollback failed:",
+          rollbackError.message
+        );
+      }
     }
 
     throw error;
