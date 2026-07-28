@@ -2,6 +2,8 @@ import {
   addHomeAssetService,
   getTrendingAssetsService,
   getRecommendedAssetsService,
+  addLimitedTimeOfferService,
+  getLimitedTimeOffersService,
 } from "./home.service.js";
 
 export const addTrendingAssetController = async (
@@ -9,7 +11,6 @@ export const addTrendingAssetController = async (
   res
 ) => {
   try {
-    console.log("req.file",req.file)
     const result = await addHomeAssetService({
       body: req.body,
       file: req.file,
@@ -134,6 +135,68 @@ export const getRecommendedAssetsController =
           message:
             error.message ||
             "Failed to fetch recommended assets.",
+        });
+    }
+  };
+
+  export const addLimitedTimeOfferController =
+  async (req, res) => {
+    try {
+      const limitedTimeOffer =
+        await addLimitedTimeOfferService({
+          body: req.body,
+          file: req.file,
+        });
+
+      return res.status(201).json({
+        success: true,
+        message:
+          "Limited-time offer added successfully.",
+        data: limitedTimeOffer,
+      });
+    } catch (error) {
+      console.error(
+        "ADD LIMITED-TIME OFFER ERROR:",
+        error
+      );
+
+      return res
+        .status(error.statusCode || 500)
+        .json({
+          success: false,
+          message:
+            error.message ||
+            "Failed to add limited-time offer.",
+        });
+    }
+  };
+
+  export const getLimitedTimeOffersController =
+  async (req, res) => {
+    try {
+      const limitedTimeOffers =
+        await getLimitedTimeOffersService();
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Limited-time offers fetched successfully.",
+        count: limitedTimeOffers.length,
+        data: limitedTimeOffers,
+      });
+    } catch (error) {
+      console.error(
+        "GET LIMITED-TIME OFFERS ERROR:",
+        error
+      );
+
+      return res
+        .status(error.statusCode || 500)
+        .json({
+          success: false,
+          message:
+            error.message ||
+            "Failed to fetch limited-time offers.",
         });
     }
   };

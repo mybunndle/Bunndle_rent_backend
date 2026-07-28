@@ -6,6 +6,8 @@ import {
   addRecommendedAssetController,
   getTrendingAssetsController,
   getRecommendedAssetsController,
+  addLimitedTimeOfferController,
+  getLimitedTimeOffersController,
 } from "./home.controller.js";
 
 const router = express.Router();
@@ -29,5 +31,14 @@ router.post(
 
 // Fetch recommended assets
 router.get("/get_recommended", getRecommendedAssetsController);
+
+router.post(
+  "/add_limitedtimeoffer",
+  authenticate,
+  uploadHomeImage.single("image"),
+  addLimitedTimeOfferController,
+);
+
+router.get("/get_limitedtimeoffer", getLimitedTimeOffersController);
 
 export default router;
