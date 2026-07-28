@@ -9,6 +9,9 @@ const router = express.Router();
 
 router.post("/add_trending", authenticate,uploadHomeImage.single("image"), addTrendingAssetController)
 
+router.post("/add_recommended", authenticate,uploadHomeImage.single("image"),  addTrendingAssetController)// same as trending only path is different
+
+
 
 
 
