@@ -87,19 +87,57 @@ export async function login(req, res) {
     return res.status(err.statusCode || 500).json({ message: err.message });
   }
 }
-export async function getCurrentUser(req, res) {
+export const getCurrentUser = async (
+  req,
+  res,
+  next
+) => {
   try {
-    const userId = req.user.id;
-    const userProfile = await getUserProfile_Service(userId);
+    const userId =
+      req.user?._id ||
+      req.user?.id ||
+      req.user?.userId;
+
+    const result = await getUserProfile_Service(userId);
+
+    const formatDate = (date) => {
+      if (!date) {
+        return null;
+      }
+
+      const parsedDate = new Date(date);
+
+      if (Number.isNaN(parsedDate.getTime())) {
+        return null;
+      }
+
+      const day = String(
+        parsedDate.getUTCDate()
+      ).padStart(2, "0");
+
+      const month = String(
+        parsedDate.getUTCMonth() + 1
+      ).padStart(2, "0");
+
+      const year = parsedDate.getUTCFullYear();
+
+      return `${day}-${month}-${year}`;
+    };
+
+    const userData = {
+      ...result.data,
+      dob: formatDate(result.data?.dob),
+    };
 
     return res.status(200).json({
-      message: "User profile fetched successfully",
-      data: userProfile.data,
+      success: true,
+      message: result.message,
+      data: userData,
     });
-  } catch (err) {
-    return res.status(err.statusCode || 500).json({ message: err.message });
+  } catch (error) {
+    next(error);
   }
-}
+};
 
 export async function changePassword(req, res) {
   try {

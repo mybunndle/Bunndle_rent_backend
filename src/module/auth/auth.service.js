@@ -190,23 +190,26 @@ export async function getUserProfile_Service(userId) {
     throw createError(404, "User not found");
   }
 
-  // DOB format: YYYY-MM-DD
-  user.dob = user.dob
-    ? new Date(user.dob).toISOString().split("T")[0]
-    : null;
+  const formatDate = (date) => {
+    if (!date) return null;
 
-  // Keep timestamps in standard ISO format
-  user.createdAt = user.createdAt
-    ? new Date(user.createdAt).toISOString()
-    : null;
+    const parsedDate = new Date(date);
 
-  user.updatedAt = user.updatedAt
-    ? new Date(user.updatedAt).toISOString()
-    : null;
+    if (Number.isNaN(parsedDate.getTime())) {
+      return null;
+    }
 
-  user.kycVerifiedAt = user.kycVerifiedAt
-    ? new Date(user.kycVerifiedAt).toISOString()
-    : null;
+    const day = String(parsedDate.getUTCDate()).padStart(2, "0");
+    const month = String(parsedDate.getUTCMonth() + 1).padStart(2, "0");
+    const year = parsedDate.getUTCFullYear();
+
+    return `${day}-${month}-${year}`;
+  };
+
+  user.dob = formatDate(user.dob);
+  user.kycVerifiedAt = formatDate(user.kycVerifiedAt);
+  user.createdAt = formatDate(user.createdAt);
+  user.updatedAt = formatDate(user.updatedAt);
 
   return {
     success: true,
