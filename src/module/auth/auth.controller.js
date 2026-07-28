@@ -100,12 +100,20 @@ export const getCurrentUser = async (
 
     const result = await getUserProfile_Service(userId);
 
-    const formatDate = (date) => {
-      if (!date) {
+    const formatDOB = (dob) => {
+      if (!dob) {
         return null;
       }
 
-      const parsedDate = new Date(date);
+      // Agar DOB already DD-MM-YYYY format mein hai
+      if (
+        typeof dob === "string" &&
+        /^\d{2}-\d{2}-\d{4}$/.test(dob)
+      ) {
+        return dob;
+      }
+
+      const parsedDate = new Date(dob);
 
       if (Number.isNaN(parsedDate.getTime())) {
         return null;
@@ -126,7 +134,7 @@ export const getCurrentUser = async (
 
     const userData = {
       ...result.data,
-      dob: formatDate(result.data?.dob),
+      dob: formatDOB(result.data?.dob),
     };
 
     return res.status(200).json({
