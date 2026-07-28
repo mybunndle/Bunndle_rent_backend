@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 
 import authRoutes from "./module/auth/auth.routes.js";
 import assetRoutes from "./module/asset/asset.routes.js";
+import homeRoutes from "./module/Home_page/home.routes.js";
 
 const app = express();
 
@@ -34,6 +35,7 @@ app.get("/health/db", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/asset", assetRoutes);
+app.use("/api/home", homeRoutes)
 
 app.use((req, res) => {
   return res.status(404).json({

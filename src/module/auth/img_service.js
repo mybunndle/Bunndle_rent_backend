@@ -27,7 +27,6 @@ export const uploadProfilePicture = async (file) => {
 };
 
 
-
 export const deleteProfilePicture = async (fileId) => {
   try {
    
