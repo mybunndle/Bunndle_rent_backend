@@ -9,6 +9,7 @@ const homeTrendRecomSchema = new mongoose.Schema(
     type: {
       type: String,
       enum: ["trending", "recommended"],
+      required: true,
       lowercase: true,
       trim: true,
     },

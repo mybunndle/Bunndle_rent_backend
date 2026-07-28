@@ -1,5 +1,7 @@
 import {
   addHomeAssetService,
+  getTrendingAssetsService,
+  getRecommendedAssetsService,
 } from "./home.service.js";
 
 export const addTrendingAssetController = async (
@@ -40,11 +42,6 @@ export const addTrendingAssetController = async (
 
 
 
-
-
-
-
-
 export const addRecommendedAssetController = async (
   req,
   res
@@ -77,3 +74,66 @@ export const addRecommendedAssetController = async (
       });
   }
 };
+
+
+export const getTrendingAssetsController = async (
+  req,
+  res
+) => {
+  try {
+    const trendingAssets =
+      await getTrendingAssetsService();
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Trending assets fetched successfully.",
+      count: trendingAssets.length,
+      data: trendingAssets,
+    });
+  } catch (error) {
+    console.error(
+      "GET TRENDING ASSETS ERROR:",
+      error
+    );
+
+    return res
+      .status(error.statusCode || 500)
+      .json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to fetch trending assets.",
+      });
+  }
+};
+
+export const getRecommendedAssetsController =
+  async (req, res) => {
+    try {
+      const recommendedAssets =
+        await getRecommendedAssetsService();
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Recommended assets fetched successfully.",
+        count: recommendedAssets.length,
+        data: recommendedAssets,
+      });
+    } catch (error) {
+      console.error(
+        "GET RECOMMENDED ASSETS ERROR:",
+        error
+      );
+
+      return res
+        .status(error.statusCode || 500)
+        .json({
+          success: false,
+          message:
+            error.message ||
+            "Failed to fetch recommended assets.",
+        });
+    }
+  };

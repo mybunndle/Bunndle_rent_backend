@@ -113,3 +113,35 @@ export const addHomeAssetService = async ({
     throw error;
   }
 };
+
+
+export const getTrendingAssetsService = async () => {
+  const trendingAssets =
+    await homeTrendRecomModel
+      .find({
+        type: "trending",
+      })
+      .sort({
+        rank: 1,
+        createdAt: -1,
+      })
+      .lean();
+
+  return trendingAssets;
+};
+
+export const getRecommendedAssetsService =
+  async () => {
+    const recommendedAssets =
+      await homeTrendRecomModel
+        .find({
+          type: "recommended",
+        })
+        .sort({
+          rank: 1,
+          createdAt: -1,
+        })
+        .lean();
+
+    return recommendedAssets;
+  };
