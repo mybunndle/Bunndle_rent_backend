@@ -179,18 +179,39 @@ export async function getUserProfile_Service(userId) {
     throw createError(400, "User ID is required");
   }
 
-  const data = await userModel
+  const user = await userModel
     .findById(userId)
-    .select("name email phone dob role profileImage isVerified isBlocked createdAt updatedAt");
+    .select(
+      "name email phone dob type authProvider profileImage profileImageId kycStatus isKycVerified kycVerifiedAt createdAt updatedAt"
+    )
+    .lean();
 
-  if (!data) {
+  if (!user) {
     throw createError(404, "User not found");
   }
+
+  // DOB format: YYYY-MM-DD
+  user.dob = user.dob
+    ? new Date(user.dob).toISOString().split("T")[0]
+    : null;
+
+  // Keep timestamps in standard ISO format
+  user.createdAt = user.createdAt
+    ? new Date(user.createdAt).toISOString()
+    : null;
+
+  user.updatedAt = user.updatedAt
+    ? new Date(user.updatedAt).toISOString()
+    : null;
+
+  user.kycVerifiedAt = user.kycVerifiedAt
+    ? new Date(user.kycVerifiedAt).toISOString()
+    : null;
 
   return {
     success: true,
     message: "User profile fetched successfully",
-    data,
+    data: user,
   };
 }
 
