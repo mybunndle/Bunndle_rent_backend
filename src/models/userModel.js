@@ -4,36 +4,38 @@ const userSchema = new mongoose.Schema(
   {
     name: {
       type: String,
+      required: true,
+      trim: true,
+    },
+
+    phone: {
+      type: String,
+      unique: true,
+      sparse: true, // ⭐ allows multiple nulls
       trim: true,
     },
 
     email: {
       type: String,
+      unique: true,
+      sparse: true, // important for Google/Apple users without email (edge cases)
       trim: true,
       lowercase: true,
-      unique: true,
-      sparse: true,
     },
 
     password: {
       type: String,
       select: false,
-    },
-    type: {
-      type: String,
-      enum: ["user", "admin"],
-      default: "user",
+      required: function () {
+        return this.authProvider === "local";
+      },
     },
 
-    profileImage: {
-      url: {
-        type: String,
-        default: null,
-      },
-      fileId: {
-        type: String,
-        default: null,
-      },
+    /* ===== AUTH ===== */
+    authProvider: {
+      type: String,
+      enum: ["local", "google", "apple"],
+      default: "local",
     },
 
     googleId: {
@@ -41,35 +43,61 @@ const userSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
     },
-
     appleId: {
       type: String,
       unique: true,
       sparse: true,
-      trim: true,
     },
 
-    authProvider: {
+    /* ===== PROFILE ===== */
+    
+    dob: {
+      type: Date,
+      default: null,
+
+      validate: {
+        validator: function (value) {
+          return value === null || value instanceof Date;
+        },
+
+        message: "Invalid date format",
+      },
+    },
+    type:{
       type: String,
-      enum: ["local", "google", "apple"],
-      default: "local",
+      enum: ["USER", "ADMIN"],
+      default: "USER",
     },
 
-    isVerified: {
+    profileImage:{
+      type: String,
+      default: null,
+    },
+    
+    profileImageId: String,
+
+    kycStatus: {
+      type: String,
+      enum: ["NOT_STARTED", "PENDING", "VERIFIED"],
+      default: "NOT_STARTED",
+    },
+
+    isKycVerified: {
       type: Boolean,
       default: false,
     },
 
-    isBlocked: {
-      type: Boolean,
-      default: false,
+    kycVerifiedAt: Date,
+
+    /* ===== RESET PASSWORD ===== */
+    resetOtpHash: {
+      type: String,
+      select: false,
     },
+
+    resetOtpExpiry: Date,
   },
-  {
-    timestamps: true,
-  },
+  { timestamps: true },
 );
 
-const userModel = mongoose.model("User", userSchema);
-
-export default userModel;
+export default mongoose.model("User", userSchema);

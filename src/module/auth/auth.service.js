@@ -40,7 +40,7 @@ const normalizePhone = (phone) => {
 ========================================================= */
 
 export async function registerUser_Service({ name, email, phone, password }) {
-  console.log(name, email, phone, password);
+ 
   const cleanName = String(name || "").trim();
   const cleanEmail = normalizeEmail(email);
   const cleanPhone = normalizePhone(phone);
