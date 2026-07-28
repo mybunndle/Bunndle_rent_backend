@@ -60,19 +60,25 @@ export const deleteAssetController = async (req, res) => {
 
 export const getAssetsController = async (req, res) => {
   try {
-    const userId = req.user?.id;
-    const assets = await getAssetsService({ userId });
+    const page = req.query.page || 1;
+
+    const result = await getAssetsService({
+      page,
+    });
 
     return res.status(200).json({
       success: true,
-      message: "Assets fetched successfully",
-      count: assets.length,
-      data: assets,
+      message: "Assets fetched successfully.",
+      count: result.assets.length,
+      data: result.assets,
+      pagination: result.pagination,
     });
   } catch (error) {
-    return res.status(500).json({
+    console.error("GET ASSETS ERROR:", error);
+
+    return res.status(error.statusCode || 500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Unable to fetch assets.",
     });
   }
 };

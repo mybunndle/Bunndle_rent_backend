@@ -2,10 +2,7 @@ import mongoose from "mongoose";
 import assetModel from "../../models/assetModel.js";
 import userModel from "../../models/userModel.js";
 
-import {
-  uploadAssetFile,
-  deleteAssetFile,
-} from "./img_upload.service.js";
+import { uploadAssetFile, deleteAssetFile } from "./img_upload.service.js";
 
 const createError = (statusCode, message) => {
   const error = new Error(message);
@@ -23,11 +20,7 @@ const cleanValue = (value) => {
   return stringValue || undefined;
 };
 
-export const addAssetService = async ({
-  userId,
-  body = {},
-  files = [],
-}) => {
+export const addAssetService = async ({ userId, body = {}, files = [] }) => {
   // 1. Check authentication
   if (!userId) {
     throw createError(401, "Unauthorized user.");
@@ -44,26 +37,16 @@ export const addAssetService = async ({
 
   // 3. Validate required fields
   if (!model || !category || !purchaseYear) {
-    throw createError(
-      400,
-      "Model, category, and purchase year are required."
-    );
+    throw createError(400, "Model, category, and purchase year are required.");
   }
 
   // 4. Validate uploaded files
   if (!Array.isArray(files) || files.length === 0) {
-    throw createError(
-      400,
-      "At least 1 asset image is required."
-    );
+    throw createError(400, "At least 1 asset image is required.");
   }
- 
+
   // 5. Check whether user exists
-  const user = await userModel
-    .findById(userId)
-    .select("_id name email");
-  
-  
+  const user = await userModel.findById(userId).select("_id name email");
 
   if (!user) {
     throw createError(404, "User not found.");
@@ -74,7 +57,7 @@ export const addAssetService = async ({
   try {
     // 6. Upload all asset images
     uploadedFiles = await Promise.all(
-      files.map((file) => uploadAssetFile(file))
+      files.map((file) => uploadAssetFile(file)),
     );
 
     // 7. Create asset in MongoDB
@@ -100,15 +83,12 @@ export const addAssetService = async ({
     if (uploadedFiles.length > 0) {
       await Promise.allSettled(
         uploadedFiles.map(async (file) => {
-          const fileId =
-            file.fileId ||
-            file.publicId ||
-            file.public_id;
+          const fileId = file.fileId || file.publicId || file.public_id;
 
           if (fileId) {
             await deleteAssetFile(fileId);
           }
-        })
+        }),
       );
     }
 
@@ -116,21 +96,44 @@ export const addAssetService = async ({
   }
 };
 
+const ASSETS_PER_PAGE = 2;
 
+export const getAssetsService = async ({ page = 1 }) => {
+  const currentPage = Number.parseInt(page, 10);
 
-
-export const getAssetsService = async ({ _id }) => {
-  try {
-    const assets = await assetModel
-    .find({})
-      .sort({ createdAt: -1 });
-
-    return assets;
-  } catch (error) {
-    throw error;
+  if (!Number.isInteger(currentPage) || currentPage < 1) {
+    throw createError(400, "Page must be a positive integer.");
   }
-};
 
+  const skip = (currentPage - 1) * ASSETS_PER_PAGE;
+
+  const [assets, totalAssets] = await Promise.all([
+    assetModel
+      .find({})
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(ASSETS_PER_PAGE)
+      .lean(),
+
+    assetModel.countDocuments({}),
+  ]);
+
+  const totalPages = Math.ceil(totalAssets / ASSETS_PER_PAGE);
+
+  return {
+    assets,
+    pagination: {
+      currentPage,
+      assetsPerPage: ASSETS_PER_PAGE,
+      totalAssets,
+      totalPages,
+      hasNextPage: currentPage < totalPages,
+      hasPreviousPage: currentPage > 1,
+      nextPage: currentPage < totalPages ? currentPage + 1 : null,
+      previousPage: currentPage > 1 ? currentPage - 1 : null,
+    },
+  };
+};
 
 export const editAssetService = async ({
   assetId,
@@ -159,7 +162,7 @@ export const editAssetService = async ({
   if (!existingAsset) {
     throw createError(
       404,
-      "Asset not found or you are not allowed to edit it."
+      "Asset not found or you are not allowed to edit it.",
     );
   }
 
@@ -181,10 +184,7 @@ export const editAssetService = async ({
       const cleanedValue = cleanValue(body[field]);
 
       if (cleanedValue === undefined) {
-        throw createError(
-          400,
-          `${field} cannot be empty.`
-        );
+        throw createError(400, `${field} cannot be empty.`);
       }
 
       updateData[field] = cleanedValue;
@@ -192,7 +192,6 @@ export const editAssetService = async ({
   }
 
   // 5. Required fields cannot become empty
-  
 
   // 6. Validate uploaded files
   if (!Array.isArray(files)) {
@@ -203,7 +202,7 @@ export const editAssetService = async ({
     // 7. Upload new images when provided
     if (files.length > 0) {
       newlyUploadedFiles = await Promise.all(
-        files.map((file) => uploadAssetFile(file))
+        files.map((file) => uploadAssetFile(file)),
       );
 
       // New images will replace existing images
@@ -212,10 +211,7 @@ export const editAssetService = async ({
 
     // 8. Check whether user sent anything to update
     if (Object.keys(updateData).length === 0) {
-      throw createError(
-        400,
-        "Provide at least one field or image to update."
-      );
+      throw createError(400, "Provide at least one field or image to update.");
     }
 
     // 9. Update only provided fields
@@ -230,7 +226,7 @@ export const editAssetService = async ({
       {
         new: true,
         runValidators: true,
-      }
+      },
     );
 
     if (!updatedAsset) {
@@ -245,15 +241,12 @@ export const editAssetService = async ({
     ) {
       await Promise.allSettled(
         existingAsset.files.map(async (file) => {
-          const fileId =
-            file.fileId ||
-            file.publicId ||
-            file.public_id;
+          const fileId = file.fileId || file.publicId || file.public_id;
 
           if (fileId) {
             await deleteAssetFile(fileId);
           }
-        })
+        }),
       );
     }
 
@@ -266,15 +259,12 @@ export const editAssetService = async ({
     if (newlyUploadedFiles.length > 0) {
       await Promise.allSettled(
         newlyUploadedFiles.map(async (file) => {
-          const fileId =
-            file.fileId ||
-            file.publicId ||
-            file.public_id;
+          const fileId = file.fileId || file.publicId || file.public_id;
 
           if (fileId) {
             await deleteAssetFile(fileId);
           }
-        })
+        }),
       );
     }
 
@@ -282,21 +272,14 @@ export const editAssetService = async ({
   }
 };
 
-
-export const deleteAssetService = async ({
-  assetId,
-  userId,
-}) => {
+export const deleteAssetService = async ({ assetId, userId }) => {
   // 1. Check logged-in user
   if (!userId) {
     throw createError(401, "Unauthorized user.");
   }
 
   // 2. Validate asset ID
-  if (
-    !assetId ||
-    !mongoose.Types.ObjectId.isValid(assetId)
-  ) {
+  if (!assetId || !mongoose.Types.ObjectId.isValid(assetId)) {
     throw createError(400, "Invalid asset ID.");
   }
 
@@ -308,14 +291,8 @@ export const deleteAssetService = async ({
   }
 
   // 4. Check asset ownership
-  if (
-    !asset.userId ||
-    String(asset.userId) !== String(userId)
-  ) {
-    throw createError(
-      403,
-      "You are not allowed to delete this asset."
-    );
+  if (!asset.userId || String(asset.userId) !== String(userId)) {
+    throw createError(403, "You are not allowed to delete this asset.");
   }
 
   // 5. Store asset response before deleting
@@ -328,32 +305,23 @@ export const deleteAssetService = async ({
   });
 
   // 7. Delete asset images from storage
-  if (
-    Array.isArray(asset.files) &&
-    asset.files.length > 0
-  ) {
+  if (Array.isArray(asset.files) && asset.files.length > 0) {
     const deletionResults = await Promise.allSettled(
       asset.files.map(async (file) => {
-        const fileId =
-          file.fileId ||
-          file.publicId ||
-          file.public_id;
+        const fileId = file.fileId || file.publicId || file.public_id;
 
         if (fileId) {
           await deleteAssetFile(fileId);
         }
-      })
+      }),
     );
 
     const failedDeletions = deletionResults.filter(
-      (result) => result.status === "rejected"
+      (result) => result.status === "rejected",
     );
 
     if (failedDeletions.length > 0) {
-      console.error(
-        "Some asset images could not be deleted:",
-        failedDeletions
-      );
+      console.error("Some asset images could not be deleted:", failedDeletions);
     }
   }
 
