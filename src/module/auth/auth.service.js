@@ -181,7 +181,7 @@ export async function getUserProfile_Service(userId) {
 
   const data = await userModel
     .findById(userId)
-    .select("name email phone role isVerified isBlocked createdAt updatedAt");
+    .select("name email phone dob role profileImage isVerified isBlocked createdAt updatedAt");
 
   if (!data) {
     throw createError(404, "User not found");
