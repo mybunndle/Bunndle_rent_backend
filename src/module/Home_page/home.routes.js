@@ -1,10 +1,11 @@
 import express from "express";
 import { authenticate } from "../../middleware/auth.middleware.js";
 import { uploadHomeImage } from "../../middleware/upload.js";
-import { 
-    addTrendingAssetController ,
-    getTrendingAssetsController,
-    getRecommendedAssetsController,
+import {
+  addTrendingAssetController,
+  addRecommendedAssetController,
+  getTrendingAssetsController,
+  getRecommendedAssetsController,
 } from "./home.controller.js";
 
 const router = express.Router();
@@ -23,7 +24,7 @@ router.post(
   "/add_recommended",
   authenticate,
   uploadHomeImage.single("image"),
-  addTrendingAssetController,
+  addRecommendedAssetController,
 ); // same as trending only path is different
 
 // Fetch recommended assets
