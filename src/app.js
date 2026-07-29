@@ -11,10 +11,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.get("/", (req, res) => {
-  return res.status(200).json({
-    success: true,
-    message: "Bundle_rent Server is Up and running",
-  });
+return res.send("🚀🚀 Bunndle_rent server is up and running")
 });
 
 app.get("/health/db", (req, res) => {
