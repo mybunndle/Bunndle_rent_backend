@@ -178,13 +178,7 @@ export const updateProfile = async (
       req.user?.id ||
       req.user?.userId;
 
-    console.log("Update profile userId:", userId);
-    console.log("Update profile body:", req.body);
-    console.log(
-      "Update profile file:",
-      req.file?.originalname
-    );
-
+    
     const updatedUser =
       await updateProfile_Service({
         userId,
