@@ -8,6 +8,8 @@ import {
   getRecommendedAssetsController,
   addLimitedTimeOfferController,
   getLimitedTimeOffersController,
+  addHomeDealController,
+  getHomeDealsController,
 } from "./home.controller.js";
 
 const router = express.Router();
@@ -40,5 +42,14 @@ router.post(
 );
 
 router.get("/get_limitedtimeoffer", getLimitedTimeOffersController);
+
+router.post(
+  "/add_home_deal",
+  authenticate,
+  uploadHomeImage.array("images", 10),
+  addHomeDealController,
+);
+
+router.get("/get_home_deals", getHomeDealsController);
 
 export default router;

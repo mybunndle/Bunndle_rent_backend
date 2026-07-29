@@ -1,5 +1,6 @@
 import homeTrendRecomModel  from "../../models/homeTrend&RecomModel.js";
 import limitedTimeOfferModel from "../../models/limitedtimeofferModel.js";
+import homeDealsModel from "../../models/homeDealsModel.js";
 import {
   uploadHomeFiles,
   deleteHomeFiles,
@@ -153,6 +154,7 @@ export const addLimitedTimeOfferService = async ({
   file = null,
 }) => {
   const title = cleanValue(body.title);
+  const category = cleanValue(body.category);
 
   const discountPercentage =
     body.discountPercentage !== undefined &&
@@ -181,6 +183,12 @@ export const addLimitedTimeOfferService = async ({
       "Limited-time offer title is required."
     );
   }
+  if (!category) {
+  throw createError(
+    400,
+    "Limited-time offer category is required."
+  );
+}
 
   if (
     discountPercentage === null ||
@@ -258,6 +266,7 @@ if (rank < 1) {
     const limitedTimeOffer =
       await limitedTimeOfferModel.create({
         title,
+        category,
         discountPercentage,
         discountPrice,
         rank,
@@ -300,3 +309,61 @@ export const getLimitedTimeOffersService =
 
     return limitedTimeOffers;
   };
+
+  export const addHomeDealService = async ({
+  files = [],
+}) => {
+  if (!Array.isArray(files) || files.length < 3) {
+    throw createError(
+      400,
+      "At least 3 home deal images are required."
+    );
+  }
+
+  const uploadedImages = [];
+
+  try {
+    for (const file of files) {
+      const uploadedImage =
+        await uploadHomeFiles(file);
+
+      uploadedImages.push({
+        url: uploadedImage.url,
+        fileId: uploadedImage.fileId,
+        filename: uploadedImage.filename,
+      });
+    }
+
+    const homeDeal = await homeDealsModel.create({
+      images: uploadedImages,
+    });
+
+    return homeDeal;
+  } catch (error) {
+    /*
+     * Agar kuch images ImageKit par upload ho gayi hain
+     * aur MongoDB save fail ho gaya, toh uploaded images
+     * ko ImageKit se delete kar denge.
+     */
+    if (uploadedImages.length > 0) {
+      await Promise.allSettled(
+        uploadedImages.map((image) =>
+          deleteHomeFiles(image.fileId)
+        )
+      );
+    }
+
+    throw error;
+  }
+};
+
+export const getHomeDealsService = async () => {
+  const homeDeals = await homeDealsModel
+    .find({})
+    .sort({
+      createdAt: -1,
+    })
+    .lean();
+
+  return homeDeals;
+};
