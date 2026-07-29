@@ -46,7 +46,7 @@ router.get("/get_limitedtimeoffer", getLimitedTimeOffersController);
 router.post(
   "/add_home_deal",
   authenticate,
-  uploadHomeImage.array("images", 10),
+  uploadHomeImage.single("images"),
   addHomeDealController,
 );
 

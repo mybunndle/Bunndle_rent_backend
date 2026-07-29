@@ -1,13 +1,7 @@
-import homeTrendRecomModel  from "../../models/homeTrend&RecomModel.js";
+import homeTrendRecomModel from "../../models/homeTrend&RecomModel.js";
 import limitedTimeOfferModel from "../../models/limitedtimeofferModel.js";
 import homeDealsModel from "../../models/homeDealsModel.js";
-import {
-  uploadHomeFiles,
-  deleteHomeFiles,
-} from "./img_service.js";
-
-
-
+import { uploadHomeFiles, deleteHomeFiles } from "./img_service.js";
 
 const createError = (statusCode, message) => {
   const error = new Error(message);
@@ -34,19 +28,13 @@ export const addHomeAssetService = async ({
   const brand = cleanValue(body.brand);
   const model = cleanValue(body.model);
 
-
-
   const price =
-    body.price !== undefined &&
-    body.price !== null &&
-    body.price !== ""
+    body.price !== undefined && body.price !== null && body.price !== ""
       ? Number(body.price)
       : null;
 
   const rank =
-    body.rank !== undefined &&
-    body.rank !== null &&
-    body.rank !== ""
+    body.rank !== undefined && body.rank !== null && body.rank !== ""
       ? Number(body.rank)
       : null;
 
@@ -56,14 +44,8 @@ export const addHomeAssetService = async ({
     !normalizedType ||
     !["trending", "recommended"].includes(normalizedType)
   ) {
-    throw createError(
-      400,
-      "Type must be either trending or recommended."
-    );
+    throw createError(400, "Type must be either trending or recommended.");
   }
-
- 
-
 
   if (!file) {
     throw createError(400, "Asset image is required.");
@@ -90,9 +72,7 @@ export const addHomeAssetService = async ({
 
     return {
       message: `${
-        normalizedType === "trending"
-          ? "Trending"
-          : "Recommended"
+        normalizedType === "trending" ? "Trending" : "Recommended"
       } asset added successfully.`,
       data: asset,
     };
@@ -102,13 +82,8 @@ export const addHomeAssetService = async ({
      * toh uploaded image delete kar denge.
      */
     if (uploadedImage?.fileId) {
-      await deleteHomeFiles(
-        uploadedImage.fileId
-      ).catch((deleteError) => {
-        console.error(
-          "IMAGE CLEANUP ERROR:",
-          deleteError.message
-        );
+      await deleteHomeFiles(uploadedImage.fileId).catch((deleteError) => {
+        console.error("IMAGE CLEANUP ERROR:", deleteError.message);
       });
     }
 
@@ -116,38 +91,33 @@ export const addHomeAssetService = async ({
   }
 };
 
-
 export const getTrendingAssetsService = async () => {
-  const trendingAssets =
-    await homeTrendRecomModel
-      .find({
-        type: "trending",
-      })
-      .sort({
-        rank: 1,
-        createdAt: -1,
-      })
-      .lean();
+  const trendingAssets = await homeTrendRecomModel
+    .find({
+      type: "trending",
+    })
+    .sort({
+      rank: 1,
+      createdAt: -1,
+    })
+    .lean();
 
   return trendingAssets;
 };
 
-export const getRecommendedAssetsService =
-  async () => {
-    const recommendedAssets =
-      await homeTrendRecomModel
-        .find({
-          type: "recommended",
-        })
-        .sort({
-          rank: 1,
-          createdAt: -1,
-        })
-        .lean();
+export const getRecommendedAssetsService = async () => {
+  const recommendedAssets = await homeTrendRecomModel
+    .find({
+      type: "recommended",
+    })
+    .sort({
+      rank: 1,
+      createdAt: -1,
+    })
+    .lean();
 
-    return recommendedAssets;
-  };
-
+  return recommendedAssets;
+};
 
 export const addLimitedTimeOfferService = async ({
   body = {},
@@ -169,93 +139,49 @@ export const addLimitedTimeOfferService = async ({
     body.discountPrice !== ""
       ? Number(body.discountPrice)
       : null;
-  
+
   const rank =
-    body.rank !== undefined &&
-    body.rank !== null &&
-    body.rank !== ""
+    body.rank !== undefined && body.rank !== null && body.rank !== ""
       ? Number(body.rank)
       : null;
 
   if (!title) {
-    throw createError(
-      400,
-      "Limited-time offer title is required."
-    );
+    throw createError(400, "Limited-time offer title is required.");
   }
   if (!category) {
-  throw createError(
-    400,
-    "Limited-time offer category is required."
-  );
-}
-
-  if (
-    discountPercentage === null ||
-    Number.isNaN(discountPercentage)
-  ) {
-    throw createError(
-      400,
-      "Valid discount percentage is required."
-    );
+    throw createError(400, "Limited-time offer category is required.");
   }
 
-  if (
-    discountPercentage < 0 ||
-    discountPercentage > 100
-  ) {
-    throw createError(
-      400,
-      "Discount percentage must be between 0 and 100."
-    );
+  if (discountPercentage === null || Number.isNaN(discountPercentage)) {
+    throw createError(400, "Valid discount percentage is required.");
   }
 
-  if (
-    discountPrice === null ||
-    Number.isNaN(discountPrice)
-  ) {
-    throw createError(
-      400,
-      "Valid discount price is required."
-    );
+  if (discountPercentage < 0 || discountPercentage > 100) {
+    throw createError(400, "Discount percentage must be between 0 and 100.");
+  }
+
+  if (discountPrice === null || Number.isNaN(discountPrice)) {
+    throw createError(400, "Valid discount price is required.");
   }
 
   if (discountPrice < 0) {
-    throw createError(
-      400,
-      "Discount price cannot be negative."
-    );
+    throw createError(400, "Discount price cannot be negative.");
   }
 
-  if (
-  rank === null ||
-  Number.isNaN(rank)
-) {
-  throw createError(
-    400,
-    "Valid rank is required."
-  );
-}
+  if (rank === null || Number.isNaN(rank)) {
+    throw createError(400, "Valid rank is required.");
+  }
 
-if (!Number.isInteger(rank)) {
-  throw createError(
-    400,
-    "Rank must be a whole number."
-  );
-}
+  if (!Number.isInteger(rank)) {
+    throw createError(400, "Rank must be a whole number.");
+  }
 
-if (rank < 1) {
-  throw createError(
-    400,
-    "Rank must be at least 1."
-  );
-}
+  if (rank < 1) {
+    throw createError(400, "Rank must be at least 1.");
+  }
 
   if (!file) {
-    throw createError(
-      400,
-      "Limited-time offer image is required."
-    );
+    throw createError(400, "Limited-time offer image is required.");
   }
 
   let uploadedImage = null;
@@ -263,31 +189,28 @@ if (rank < 1) {
   try {
     uploadedImage = await uploadHomeFiles(file);
 
-    const limitedTimeOffer =
-      await limitedTimeOfferModel.create({
-        title,
-        category,
-        discountPercentage,
-        discountPrice,
-        rank,
+    const limitedTimeOffer = await limitedTimeOfferModel.create({
+      title,
+      category,
+      discountPercentage,
+      discountPrice,
+      rank,
 
-        image: {
-          url: uploadedImage.url,
-          fileId: uploadedImage.fileId,
-          filename: uploadedImage.filename,
-        },
-      });
+      image: {
+        url: uploadedImage.url,
+        fileId: uploadedImage.fileId,
+        filename: uploadedImage.filename,
+      },
+    });
 
     return limitedTimeOffer;
   } catch (error) {
     // Image upload ho gayi but MongoDB save fail hua
     if (uploadedImage?.fileId) {
-      await deleteHomeFiles(
-        uploadedImage.fileId
-      ).catch((deleteError) => {
+      await deleteHomeFiles(uploadedImage.fileId).catch((deleteError) => {
         console.error(
           "LIMITED OFFER IMAGE CLEANUP ERROR:",
-          deleteError.message
+          deleteError.message,
         );
       });
     }
@@ -296,60 +219,52 @@ if (rank < 1) {
   }
 };
 
-export const getLimitedTimeOffersService =
-  async () => {
-    const limitedTimeOffers =
-      await limitedTimeOfferModel
-        .find({})
-        .sort({
-          createdAt: -1,
-          rank: 1,
-        })
-        .lean();
+export const getLimitedTimeOffersService = async () => {
+  const limitedTimeOffers = await limitedTimeOfferModel
+    .find({})
+    .sort({
+      createdAt: -1,
+      rank: 1,
+    })
+    .lean();
 
-    return limitedTimeOffers;
-  };
+  return limitedTimeOffers;
+};
 
-  export const addHomeDealService = async ({
-  files = [],
-}) => {
-  if (!Array.isArray(files) || files.length < 3) {
-    throw createError(
-      400,
-      "At least 3 home deal images are required."
-    );
-  }
-
-  const uploadedImages = [];
+export const addHomeDealService = async ({ file = null }) => {
+  let uploadedImage = null;
 
   try {
-    for (const file of files) {
-      const uploadedImage =
-        await uploadHomeFiles(file);
-
-      uploadedImages.push({
-        url: uploadedImage.url,
-        fileId: uploadedImage.fileId,
-        filename: uploadedImage.filename,
-      });
+    if (!file) {
+      throw createError(
+        400,
+        "Home deal image is required."
+      );
     }
 
+    uploadedImage = await uploadHomeFiles(file);
+
     const homeDeal = await homeDealsModel.create({
-      images: uploadedImages,
+      images: [
+        {
+          url: uploadedImage.url,
+          fileId: uploadedImage.fileId,
+          filename: uploadedImage.filename,
+        },
+      ],
     });
 
     return homeDeal;
   } catch (error) {
-    /*
-     * Agar kuch images ImageKit par upload ho gayi hain
-     * aur MongoDB save fail ho gaya, toh uploaded images
-     * ko ImageKit se delete kar denge.
-     */
-    if (uploadedImages.length > 0) {
-      await Promise.allSettled(
-        uploadedImages.map((image) =>
-          deleteHomeFiles(image.fileId)
-        )
+    // ImageKit upload successful ho gaya lekin MongoDB save fail hua
+    if (uploadedImage?.fileId) {
+      await deleteHomeFiles(uploadedImage.fileId).catch(
+        (deleteError) => {
+          console.error(
+            "Failed to delete uploaded image:",
+            deleteError.message
+          );
+        }
       );
     }
 

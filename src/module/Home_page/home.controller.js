@@ -8,10 +8,7 @@ import {
   getHomeDealsService,
 } from "./home.service.js";
 
-export const addTrendingAssetController = async (
-  req,
-  res
-) => {
+export const addTrendingAssetController = async (req, res) => {
   try {
     const result = await addHomeAssetService({
       body: req.body,
@@ -25,30 +22,16 @@ export const addTrendingAssetController = async (
       data: result.data,
     });
   } catch (error) {
-    console.error(
-      "ADD TRENDING ASSET ERROR:",
-      error
-    );
+    console.error("ADD TRENDING ASSET ERROR:", error);
 
-    return res
-      .status(error.statusCode || 500)
-      .json({
-        success: false,
-        message:
-          error.message ||
-          "Failed to add trending asset.",
-      });
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Failed to add trending asset.",
+    });
   }
 };
 
-
-
-
-
-export const addRecommendedAssetController = async (
-  req,
-  res
-) => {
+export const addRecommendedAssetController = async (req, res) => {
   try {
     const result = await addHomeAssetService({
       body: req.body,
@@ -62,154 +45,101 @@ export const addRecommendedAssetController = async (
       data: result.data,
     });
   } catch (error) {
-    console.error(
-      "ADD RECOMMENDED ASSET ERROR:",
-      error
-    );
+    console.error("ADD RECOMMENDED ASSET ERROR:", error);
 
-    return res
-      .status(error.statusCode || 500)
-      .json({
-        success: false,
-        message:
-          error.message ||
-          "Failed to add recommended asset.",
-      });
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Failed to add recommended asset.",
+    });
   }
 };
 
-
-export const getTrendingAssetsController = async (
-  req,
-  res
-) => {
+export const getTrendingAssetsController = async (req, res) => {
   try {
-    const trendingAssets =
-      await getTrendingAssetsService();
+    const trendingAssets = await getTrendingAssetsService();
 
     return res.status(200).json({
       success: true,
-      message:
-        "Trending assets fetched successfully.",
+      message: "Trending assets fetched successfully.",
       count: trendingAssets.length,
       data: trendingAssets,
     });
   } catch (error) {
-    console.error(
-      "GET TRENDING ASSETS ERROR:",
-      error
-    );
+    console.error("GET TRENDING ASSETS ERROR:", error);
 
-    return res
-      .status(error.statusCode || 500)
-      .json({
-        success: false,
-        message:
-          error.message ||
-          "Failed to fetch trending assets.",
-      });
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Failed to fetch trending assets.",
+    });
   }
 };
 
-export const getRecommendedAssetsController =
-  async (req, res) => {
-    try {
-      const recommendedAssets =
-        await getRecommendedAssetsService();
+export const getRecommendedAssetsController = async (req, res) => {
+  try {
+    const recommendedAssets = await getRecommendedAssetsService();
 
-      return res.status(200).json({
-        success: true,
-        message:
-          "Recommended assets fetched successfully.",
-        count: recommendedAssets.length,
-        data: recommendedAssets,
-      });
-    } catch (error) {
-      console.error(
-        "GET RECOMMENDED ASSETS ERROR:",
-        error
-      );
+    return res.status(200).json({
+      success: true,
+      message: "Recommended assets fetched successfully.",
+      count: recommendedAssets.length,
+      data: recommendedAssets,
+    });
+  } catch (error) {
+    console.error("GET RECOMMENDED ASSETS ERROR:", error);
 
-      return res
-        .status(error.statusCode || 500)
-        .json({
-          success: false,
-          message:
-            error.message ||
-            "Failed to fetch recommended assets.",
-        });
-    }
-  };
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Failed to fetch recommended assets.",
+    });
+  }
+};
 
-  export const addLimitedTimeOfferController =
-  async (req, res) => {
-    try {
-      const limitedTimeOffer =
-        await addLimitedTimeOfferService({
-          body: req.body,
-          file: req.file,
-        });
+export const addLimitedTimeOfferController = async (req, res) => {
+  try {
+    const limitedTimeOffer = await addLimitedTimeOfferService({
+      body: req.body,
+      file: req.file,
+    });
 
-      return res.status(201).json({
-        success: true,
-        message:
-          "Limited-time offer added successfully.",
-        data: limitedTimeOffer,
-      });
-    } catch (error) {
-      console.error(
-        "ADD LIMITED-TIME OFFER ERROR:",
-        error
-      );
+    return res.status(201).json({
+      success: true,
+      message: "Limited-time offer added successfully.",
+      data: limitedTimeOffer,
+    });
+  } catch (error) {
+    console.error("ADD LIMITED-TIME OFFER ERROR:", error);
 
-      return res
-        .status(error.statusCode || 500)
-        .json({
-          success: false,
-          message:
-            error.message ||
-            "Failed to add limited-time offer.",
-        });
-    }
-  };
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Failed to add limited-time offer.",
+    });
+  }
+};
 
-  export const getLimitedTimeOffersController =
-  async (req, res) => {
-    try {
-      const limitedTimeOffers =
-        await getLimitedTimeOffersService();
+export const getLimitedTimeOffersController = async (req, res) => {
+  try {
+    const limitedTimeOffers = await getLimitedTimeOffersService();
 
-      return res.status(200).json({
-        success: true,
-        message:
-          "Limited-time offers fetched successfully.",
-        count: limitedTimeOffers.length,
-        data: limitedTimeOffers,
-      });
-    } catch (error) {
-      console.error(
-        "GET LIMITED-TIME OFFERS ERROR:",
-        error
-      );
+    return res.status(200).json({
+      success: true,
+      message: "Limited-time offers fetched successfully.",
+      count: limitedTimeOffers.length,
+      data: limitedTimeOffers,
+    });
+  } catch (error) {
+    console.error("GET LIMITED-TIME OFFERS ERROR:", error);
 
-      return res
-        .status(error.statusCode || 500)
-        .json({
-          success: false,
-          message:
-            error.message ||
-            "Failed to fetch limited-time offers.",
-        });
-    }
-  };
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Failed to fetch limited-time offers.",
+    });
+  }
+};
 
-export const addHomeDealController = async (
-  req,
-  res
-) => {
+export const addHomeDealController = async (req, res) => {
   try {
     const homeDeal = await addHomeDealService({
-      files: req.files,
+      file: req.file,
     });
 
     return res.status(201).json({
@@ -218,29 +148,18 @@ export const addHomeDealController = async (
       data: homeDeal,
     });
   } catch (error) {
-    console.error(
-      "ADD HOME DEAL ERROR:",
-      error
-    );
+    console.error("ADD HOME DEAL ERROR:", error);
 
-    return res
-      .status(error.statusCode || 500)
-      .json({
-        success: false,
-        message:
-          error.message ||
-          "Failed to add home deal.",
-      });
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Failed to add home deal.",
+    });
   }
 };
 
-export const getHomeDealsController = async (
-  req,
-  res
-) => {
+export const getHomeDealsController = async (req, res) => {
   try {
-    const homeDeals =
-      await getHomeDealsService();
+    const homeDeals = await getHomeDealsService();
 
     return res.status(200).json({
       success: true,
@@ -249,18 +168,11 @@ export const getHomeDealsController = async (
       data: homeDeals,
     });
   } catch (error) {
-    console.error(
-      "GET HOME DEALS ERROR:",
-      error
-    );
+    console.error("GET HOME DEALS ERROR:", error);
 
-    return res
-      .status(error.statusCode || 500)
-      .json({
-        success: false,
-        message:
-          error.message ||
-          "Failed to fetch home deals.",
-      });
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Failed to fetch home deals.",
+    });
   }
 };
