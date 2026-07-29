@@ -39,8 +39,8 @@ export const uploadUserProfile = multer({
 export const uploadHomeImage = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 1 * 1024 * 1024, // 5MB per file
-    files: 1                  // max 5 files
+    fileSize: 5 * 1024 * 1024, // 5MB per file
+    files: 10                  // max 5 files
   },
 
 

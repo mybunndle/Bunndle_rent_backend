@@ -4,6 +4,8 @@ import {
   getRecommendedAssetsService,
   addLimitedTimeOfferService,
   getLimitedTimeOffersService,
+  addHomeDealService,
+  getHomeDealsService,
 } from "./home.service.js";
 
 export const addTrendingAssetController = async (
@@ -200,3 +202,65 @@ export const getRecommendedAssetsController =
         });
     }
   };
+
+export const addHomeDealController = async (
+  req,
+  res
+) => {
+  try {
+    const homeDeal = await addHomeDealService({
+      files: req.files,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Home deal added successfully.",
+      data: homeDeal,
+    });
+  } catch (error) {
+    console.error(
+      "ADD HOME DEAL ERROR:",
+      error
+    );
+
+    return res
+      .status(error.statusCode || 500)
+      .json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to add home deal.",
+      });
+  }
+};
+
+export const getHomeDealsController = async (
+  req,
+  res
+) => {
+  try {
+    const homeDeals =
+      await getHomeDealsService();
+
+    return res.status(200).json({
+      success: true,
+      message: "Home deals fetched successfully.",
+      count: homeDeals.length,
+      data: homeDeals,
+    });
+  } catch (error) {
+    console.error(
+      "GET HOME DEALS ERROR:",
+      error
+    );
+
+    return res
+      .status(error.statusCode || 500)
+      .json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to fetch home deals.",
+      });
+  }
+};
