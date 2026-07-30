@@ -7,9 +7,19 @@ import homeRoutes from "./module/Home_page/home.routes.js";
 
 const app = express();
 
-app.use(cors()); 
+// cors
+
+
+
 app.use(express.json());
+
 app.use(express.urlencoded({ extended: true }));
+
+app.use(cors({
+  origin: true,   // reflects request origin
+  credentials: true
+}));
+
 
 app.get("/", (req, res) => {
 return res.send("🚀🚀 Bunndle_rent server is up and running")
