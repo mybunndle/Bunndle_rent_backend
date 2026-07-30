@@ -440,12 +440,19 @@ export const deleteAccountController = async (
       data: result,
     });
   } catch (error) {
-    console.error("DELETE ACCOUNT ERROR:", error);
+    console.error(
+      "DELETE ACCOUNT ERROR:",
+      error
+    );
 
-    return res.status(error.statusCode || 500).json({
-      success: false,
-      message:
-        error.message || "Unable to delete account.",
-    });
+    return res
+      .status(error.statusCode || 500)
+      .json({
+        success: false,
+        message:
+          error.message ||
+          "Unable to delete account.",
+      });
   }
 };
+

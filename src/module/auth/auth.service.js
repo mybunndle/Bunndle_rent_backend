@@ -8,11 +8,13 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 import tokenBlacklistModel from "../../models/tokenBlacklistModel.js";
 import { hashToken } from "../../utils/token.util.js";
 import { generateToken } from "../../utils/generate.token.js";
+import assetModel from "../../models/assetModel.js";
 
 import userModel from "../../models/userModel.js";
 import passwordResetOtpModel from "../../models/passwordResetOtp.model.js";
 import { sendForgotPasswordOtp } from "../../utils/email.js";
 import { verifyAppleToken } from "../../utils/apple_Auth.js";
+import { type } from "os";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
@@ -167,6 +169,7 @@ export async function loginUser_Service({ email, password }) {
       email: user.email,
       phone: user.phone,
       role: user.role,
+      type: user.type
     },
   };
 }
@@ -183,7 +186,7 @@ export async function getUserProfile_Service(userId) {
   const user = await userModel
     .findById(userId)
     .select(
-      "name email phone dob type authProvider profileImage profileImageId kycStatus isKycVerified kycVerifiedAt createdAt updatedAt"
+      "name email phone dob type authProvider profileImage profileImageId kycStatus isKycVerified kycVerifiedAt createdAt updatedAt",
     )
     .lean();
 
@@ -305,27 +308,17 @@ export const updateProfile_Service = async ({
     if (Object.prototype.hasOwnProperty.call(body, "dob")) {
       const dobValue = body.dob;
 
-      if (
-        dobValue === null ||
-        dobValue === "" ||
-        dobValue === "null"
-      ) {
+      if (dobValue === null || dobValue === "" || dobValue === "null") {
         user.dob = null;
       } else {
         const parsedDob = new Date(dobValue);
 
         if (Number.isNaN(parsedDob.getTime())) {
-          throw createError(
-            400,
-            "Invalid DOB. Use YYYY-MM-DD format."
-          );
+          throw createError(400, "Invalid DOB. Use YYYY-MM-DD format.");
         }
 
         if (parsedDob > new Date()) {
-          throw createError(
-            400,
-            "Date of birth cannot be in the future."
-          );
+          throw createError(400, "Date of birth cannot be in the future.");
         }
 
         user.dob = parsedDob;
@@ -338,14 +331,8 @@ export const updateProfile_Service = async ({
     if (file) {
       uploadedProfile = await uploadProfilePicture(file);
 
-      if (
-        !uploadedProfile?.url ||
-        !uploadedProfile?.fileId
-      ) {
-        throw createError(
-          500,
-          "Profile image upload failed."
-        );
+      if (!uploadedProfile?.url || !uploadedProfile?.fileId) {
+        throw createError(500, "Profile image upload failed.");
       }
 
       // Schema fields are separate strings
@@ -356,10 +343,7 @@ export const updateProfile_Service = async ({
     }
 
     if (!hasUpdate) {
-      throw createError(
-        400,
-        "Please provide name, dob, or profile image."
-      );
+      throw createError(400, "Please provide name, dob, or profile image.");
     }
 
     // Save updated user
@@ -378,7 +362,7 @@ export const updateProfile_Service = async ({
       } catch (deleteError) {
         console.error(
           "Old profile image deletion failed:",
-          deleteError.message
+          deleteError.message,
         );
       }
     }
@@ -401,19 +385,11 @@ export const updateProfile_Service = async ({
     return userData;
   } catch (error) {
     // Delete newly uploaded image only when database update failed
-    if (
-      uploadedProfile?.fileId &&
-      !updateSuccessful
-    ) {
+    if (uploadedProfile?.fileId && !updateSuccessful) {
       try {
-        await deleteProfilePicture(
-          uploadedProfile.fileId
-        );
+        await deleteProfilePicture(uploadedProfile.fileId);
       } catch (rollbackError) {
-        console.error(
-          "Profile image rollback failed:",
-          rollbackError.message
-        );
+        console.error("Profile image rollback failed:", rollbackError.message);
       }
     }
 
@@ -951,11 +927,7 @@ const getAppleFullName = (fullName) => {
   return "";
 };
 
-export const logoutService = async ({
-  userId,
-  token,
-  tokenPayload,
-}) => {
+export const logoutService = async ({ userId, token, tokenPayload }) => {
   if (!userId) {
     throw createError(401, "Unauthorized user.");
   }
@@ -976,14 +948,10 @@ export const logoutService = async ({
    * authenticate middleware decoded payload bhej raha hai.
    * Fallback ke liye token decode bhi kar rahe hain.
    */
-  const decoded =
-    tokenPayload || jwt.decode(token);
+  const decoded = tokenPayload || jwt.decode(token);
 
   if (!decoded?.exp) {
-    throw createError(
-      400,
-      "Token expiry information is missing."
-    );
+    throw createError(400, "Token expiry information is missing.");
   }
 
   const tokenHash = hashToken(token);
@@ -1007,7 +975,7 @@ export const logoutService = async ({
     },
     {
       upsert: true,
-    }
+    },
   );
 
   return {
@@ -1020,62 +988,53 @@ export const deleteAccountService = async ({
   currentPassword,
   confirmation,
 }) => {
-  // 1. Check authentication
+  // 1. Authentication check
   if (!userId) {
     throw createError(401, "Unauthorized user.");
   }
 
-  // 2. Prevent accidental account deletion
+  // 2. Accidental deletion prevent karo
   if (confirmation !== "DELETE") {
-    throw createError(
-      400,
-      'Please send confirmation as "DELETE".'
-    );
+    throw createError(400, 'Type "DELETE" to confirm account deletion.');
   }
 
-  // 3. Find user with password
+  // 3. User password ke saath find karo
   const user = await userModel
     .findById(userId)
-    .select(
-      "+password authProvider profileImage name email phone"
-    );
+    .select("+password name email phone authProvider profileImage");
 
   if (!user) {
-    throw createError(404, "User not found.");
+    throw createError(404, "User account not found.");
   }
 
   /*
-   * Local email/password account ke liye
-   * current password verify hoga.
-   *
-   * Google/Apple account me password required nahi hoga.
+   * 4. Local account password verification
    */
-  const requiresPassword =
-    user.authProvider === "local" ||
-    Boolean(user.password);
-
-  if (requiresPassword) {
+  if (user.authProvider === "local") {
     if (!currentPassword) {
-      throw createError(
-        400,
-        "Current password is required."
-      );
+      throw createError(400, "Current password is required.");
+    }
+
+    if (!user.password) {
+      throw createError(400, "Password is not configured for this account.");
     }
 
     const isPasswordCorrect = await bcrypt.compare(
       currentPassword,
-      user.password
+      user.password,
     );
 
     if (!isPasswordCorrect) {
-      throw createError(
-        401,
-        "Current password is incorrect."
-      );
+      throw createError(401, "Current password is incorrect.");
     }
   }
 
-  // 4. User ke all assets find karo
+  /*
+   * Google/Apple users ke liye production me
+   * OTP or recent-login verification add karo.
+   */
+
+  // 5. User ke assets find karo
   const assets = await assetModel
     .find({
       userId: user._id,
@@ -1083,8 +1042,8 @@ export const deleteAccountService = async ({
     .select("files")
     .lean();
 
-  // 5. All asset image file IDs collect karo
-  const imageFileIds = [];
+  // 6. Asset image IDs collect karo
+  const assetFileIds = [];
 
   for (const asset of assets) {
     if (!Array.isArray(asset.files)) {
@@ -1092,71 +1051,60 @@ export const deleteAccountService = async ({
     }
 
     for (const file of asset.files) {
-      const fileId =
-        file.fileId ||
-        file.publicId ||
-        file.public_id;
+      const fileId = file.fileId || file.publicId || file.public_id;
 
       if (fileId) {
-        imageFileIds.push(fileId);
+        assetFileIds.push(fileId);
       }
     }
   }
 
-  // 6. Profile image ID bhi collect karo
-  const profileImageFileId =
-    user.profileImage?.fileId ||
-    user.profileImage?.publicId ||
-    user.profileImage?.public_id;
-
-  if (profileImageFileId) {
-    imageFileIds.push(profileImageFileId);
-  }
-
-  // Duplicate IDs remove karo
-  const uniqueImageFileIds = [
-    ...new Set(imageFileIds),
-  ];
+  const uniqueFileIds = [...new Set(assetFileIds)];
 
   /*
-   * 7. User ke related records remove karo.
-   *
-   * Wishlist implement hone ke baad:
-   *
-   * await wishlistModel.deleteMany({
-   *   userId: user._id,
-   * });
+   * 7. Related database records delete karo
    */
 
   await assetModel.deleteMany({
     userId: user._id,
   });
 
-  // User ko sabse last me delete karo
+  /*
+   * Wishlist model add hone ke baad:
+   *
+   * await wishlistModel.deleteMany({
+   *   userId: user._id,
+   * });
+   *
+   * Notifications, enquiries, sessions aur
+   * other user-linked records bhi remove karo.
+   */
+
+  // Old blacklist records clean karo
+  await tokenBlacklistModel.deleteMany({
+    userId: user._id,
+  });
+
+  // 8. User account permanently delete karo
   await userModel.findByIdAndDelete(user._id);
 
   /*
-   * 8. Database records delete hone ke baad
-   * external storage images delete karo.
+   * 9. Database deletion ke baad
+   * ImageKit files delete karo
    */
-  if (uniqueImageFileIds.length > 0) {
-    const deletionResults =
-      await Promise.allSettled(
-        uniqueImageFileIds.map((fileId) =>
-          deleteAssetFile(fileId)
-        )
-      );
+  if (uniqueFileIds.length > 0) {
+    const imageDeletionResults = await Promise.allSettled(
+      uniqueFileIds.map((fileId) => deleteAssetFile(fileId)),
+    );
 
-    const failedImageDeletions =
-      deletionResults.filter(
-        (result) =>
-          result.status === "rejected"
-      );
+    const failedImageDeletions = imageDeletionResults.filter(
+      (result) => result.status === "rejected",
+    );
 
     if (failedImageDeletions.length > 0) {
       console.error(
         "Some account images could not be deleted:",
-        failedImageDeletions
+        failedImageDeletions,
       );
     }
   }
