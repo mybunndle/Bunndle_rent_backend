@@ -233,6 +233,7 @@ export async function checkWishlist_Controller(
 
 
 
+
 export async function getAssetsWith_wishlist_Controller(
   req,
   res
@@ -240,12 +241,18 @@ export async function getAssetsWith_wishlist_Controller(
   try {
     const userId = getLoggedInUserId(req);
 
+    const { category, subCategory } =
+      req.params;
+
     const page = req.query.page || 1;
 
-    const result = await getAssetsWith_wishlist_Service(
-      userId,
-      page
-    );
+    const result =
+      await getAssetsWith_wishlist_Service({
+        userId,
+        page,
+        category,
+        subCategory,
+      });
 
     return res.status(200).json(result);
   } catch (error) {

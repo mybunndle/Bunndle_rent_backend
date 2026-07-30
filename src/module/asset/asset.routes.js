@@ -1,17 +1,17 @@
 import express from "express";
-import {authenticate} from "../../middleware/auth.middleware.js";
+import { authenticate } from "../../middleware/auth.middleware.js";
 import { uploadAssetImages } from "../../middleware/upload.js";
-import { addAssetController ,
-   getAssetsController , 
-   editAssetController , 
-   deleteAssetController,
+import {
+  addAssetController,
+  getAssetsController,
+  editAssetController,
+  deleteAssetController,
   addToWishlist_Controller,
   removeFromWishlist_Controller,
   getWishlist_Controller,
   checkWishlist_Controller,
-   getAssetsWith_wishlist_Controller
-
-  } from "./asset.controller.js";
+  getAssetsWith_wishlist_Controller,
+} from "./asset.controller.js";
 
 const router = express.Router();
 
@@ -19,39 +19,41 @@ router.post(
   "/add_asset",
   authenticate,
   uploadAssetImages.array("files", 5),
-  addAssetController
+  addAssetController,
 );
-router.get(
-  "/get_assets",
-  authenticate,
-  getAssetsController
-);
+router.get("/get_assets", authenticate, getAssetsController);
 
 router.patch(
   "/edit_asset/:id",
   authenticate,
   uploadAssetImages.array("files", 5),
-  editAssetController
+  editAssetController,
 );
 
+router.delete("/delete_asset/:id", authenticate, deleteAssetController);
 
+router.put("/add_to_wishlist/:assetId", authenticate, addToWishlist_Controller);
 router.delete(
-
-  "/delete_asset/:id",
+  "/remove_from_wishlist/:assetId",
   authenticate,
-  deleteAssetController
+  removeFromWishlist_Controller,
 );
 
-
-router.put("/add_to_wishlist/:assetId",authenticate,addToWishlist_Controller);
-router.delete("/remove_from_wishlist/:assetId",authenticate,removeFromWishlist_Controller);
-
-router.get("/get_wishlist",authenticate,getWishlist_Controller);
-router.get("/check/:assetId",authenticate,checkWishlist_Controller);
-
+router.get("/get_wishlist", authenticate, getWishlist_Controller);
+router.get("/check/:assetId", authenticate, checkWishlist_Controller);
 
 //assets with wishlist item for aeach users
 
-router.get("/get_assets_with_wishlist",authenticate,getAssetsWith_wishlist_Controller)
+router.get(
+  "/get_assets_with_wishlist/:category/:subCategory",
+  authenticate,
+  getAssetsWith_wishlist_Controller
+);
+
+router.get(
+  "/get_assets_with_wishlist/:category",
+  authenticate,
+  getAssetsWith_wishlist_Controller
+);
 
 export default router;

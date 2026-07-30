@@ -520,74 +520,158 @@ export async function checkWishlist_Service(
 
 
 
-export async function getAssetsWith_wishlist_Service(
+
+
+
+
+
+const ALLOWED_CATEGORIES = [
+  "4-Wheeler",
+  "Heavy-Vehicle",
+  "Heavy-Machinery",
+  "Construction-Equipment",
+  "Medical-Equipment",
+  "Office-Equipment",
+  "Others",
+];
+
+const HEAVY_MACHINERY_SUBCATEGORIES = [
+  "Agriculture-Machine",
+  "Concrete & road Machinery",
+  "Cranes & Lifting",
+  "Mining Machinery",
+  "Power Equipment",
+  "Warehouse Equipment",
+];
+
+/**
+ * Finds the actual database value without making
+ * route parameters case-sensitive.
+ */
+const getMatchingValue = (receivedValue, allowedValues) => {
+  if (!receivedValue) return null;
+
+  const normalizedValue = receivedValue.trim().toLowerCase();
+
+  return (
+    allowedValues.find(
+      (value) => value.toLowerCase() === normalizedValue
+    ) || null
+  );
+};
+
+export const getAssetsWith_wishlist_Service = async ({
   userId,
-  page = 1
-) {
-  if (!userId) {
+  page = 1,
+  category,
+  subCategory,
+}) => {
+  const currentPage = Number.parseInt(page, 10);
+
+  if (!Number.isInteger(currentPage) || currentPage < 1) {
     throw createError(
-      401,
-      "Authentication is required"
+      400,
+      "Page must be a positive integer."
     );
   }
 
-  if (!mongoose.Types.ObjectId.isValid(userId)) {
-    throw createError(400, "Invalid user ID");
+  if (!category) {
+    throw createError(
+      400,
+      "Category is required."
+    );
   }
 
-  const currentPage = Number.parseInt(page, 10);
+  const validCategory = getMatchingValue(
+    category,
+    ALLOWED_CATEGORIES
+  );
 
+  if (!validCategory) {
+    throw createError(
+      400,
+      `Invalid category. Allowed categories are: ${ALLOWED_CATEGORIES.join(
+        ", "
+      )}`
+    );
+  }
+
+  let validSubCategory = null;
+
+  /*
+   * Subcategory can only be provided for Heavy-Machinery.
+   */
   if (
-    Number.isNaN(currentPage) ||
-    currentPage < 1
+    subCategory &&
+    validCategory !== "Heavy-Machinery"
   ) {
     throw createError(
       400,
-      "Page must be a positive integer"
+      "Subcategory is only available for Heavy-Machinery."
     );
+  }
+
+  if (
+    validCategory === "Heavy-Machinery" &&
+    subCategory
+  ) {
+    validSubCategory = getMatchingValue(
+      subCategory,
+      HEAVY_MACHINERY_SUBCATEGORIES
+    );
+
+    if (!validSubCategory) {
+      throw createError(
+        400,
+        `Invalid subcategory. Allowed subcategories are: ${HEAVY_MACHINERY_SUBCATEGORIES.join(
+          ", "
+        )}`
+      );
+    }
+  }
+
+  const filter = {
+    category: validCategory,
+  };
+
+  /*
+   * When no subcategory is passed, all Heavy-Machinery
+   * assets will be returned.
+   */
+  if (validSubCategory) {
+    filter.subCategory = validSubCategory;
   }
 
   const skip =
     (currentPage - 1) * ASSETS_PER_PAGE;
 
-  const assetFilter = {};
-
-  /*
-   * Only approved assets dikhane hain toh:
-   *
-   * const assetFilter = {
-   *   isapproved: "approved",
-   * };
-   */
-
   const [assets, totalAssets] =
     await Promise.all([
       assetModel
-        .find(assetFilter)
+        .find(filter)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(ASSETS_PER_PAGE)
         .lean(),
 
-      assetModel.countDocuments(assetFilter),
+      assetModel.countDocuments(filter),
     ]);
 
-  /*
-   * Current page ke sabhi asset IDs.
-   */
   const assetIds = assets.map(
     (asset) => asset._id
   );
 
-  let wishlistedIds = new Set();
+  let wishlistedAssetIds = new Set();
 
   /*
-   * Current user ne current page ke kaunse
-   * assets wishlist kiye hain.
-   *
-   * Ye ek hi database query hai.
+   * Get all wishlist entries in one query instead
+   * of checking wishlist separately for every asset.
    */
-  if (assetIds.length > 0) {
+  if (
+    userId &&
+    mongoose.Types.ObjectId.isValid(userId) &&
+    assetIds.length > 0
+  ) {
     const wishlistItems =
       await wishlistModel
         .find({
@@ -596,64 +680,53 @@ export async function getAssetsWith_wishlist_Service(
             $in: assetIds,
           },
         })
-        .select({
-          assetId: 1,
-          _id: 0,
-        })
+        .select("assetId -_id")
         .lean();
 
-    wishlistedIds = new Set(
+    wishlistedAssetIds = new Set(
       wishlistItems.map((item) =>
         item.assetId.toString()
       )
     );
   }
 
-  /*
-   * Har asset ke saath user-specific
-   * isWishlisted true/false add hoga.
-   */
-  const assetsWithWishlistStatus =
-    assets.map((asset) => ({
+  const assetsWithWishlist = assets.map(
+    (asset) => ({
       ...asset,
-
-      isWishlisted: wishlistedIds.has(
+      isWishlisted: wishlistedAssetIds.has(
         asset._id.toString()
       ),
-    }));
+    })
+  );
 
   const totalPages = Math.ceil(
     totalAssets / ASSETS_PER_PAGE
   );
 
   return {
-    
     success: true,
-    message: "Assets fetched successfully",
-    count: assets.length,
-    data: assetsWithWishlistStatus,
-
+    message: "Assets fetched successfully.",
+    data: assetsWithWishlist,
+    filters: {
+      category: validCategory,
+      subCategory: validSubCategory,
+    },
     pagination: {
       currentPage,
       assetsPerPage: ASSETS_PER_PAGE,
       totalAssets,
       totalPages,
-
-      hasNextPage:
-        currentPage < totalPages,
-
+      hasNextPage: currentPage < totalPages,
       hasPreviousPage:
-        currentPage > 1,
-
+        currentPage > 1 && totalPages > 0,
       nextPage:
         currentPage < totalPages
           ? currentPage + 1
           : null,
-
       previousPage:
-        currentPage > 1
+        currentPage > 1 && totalPages > 0
           ? currentPage - 1
           : null,
     },
   };
-}
+};
