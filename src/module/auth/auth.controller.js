@@ -16,6 +16,8 @@ import {
   resetPassword_Service,
   googleAuthService,
   appleLoginService,
+  logoutService,
+  deleteAccountService,
 } from "./auth.service.js";
 
 export async function register(req, res) {
@@ -382,6 +384,68 @@ export const appleLogin = async (req, res) => {
     return res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || "Apple authentication failed",
+    });
+  }
+};
+
+export const logoutController = async (
+  req,
+  res
+) => {
+  try {
+    const userId = req.user?.id;
+
+    const result = await logoutService({
+      userId,
+      token: req.token,
+      tokenPayload: req.tokenPayload,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Logged out successfully."
+    });
+  } catch (error) {
+    console.error("LOGOUT ERROR:", error);
+
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message:
+        error.message || "Unable to logout.",
+    });
+  }
+};
+
+export const deleteAccountController = async (
+  req,
+  res
+) => {
+  try {
+    const userId = req.user?.id;
+
+    const {
+      currentPassword,
+      confirmation,
+    } = req.body || {};
+
+    const result = await deleteAccountService({
+      userId,
+      currentPassword,
+      confirmation,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Account deleted successfully.",
+      data: result,
+    });
+  } catch (error) {
+    console.error("DELETE ACCOUNT ERROR:", error);
+
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message:
+        error.message || "Unable to delete account.",
     });
   }
 };

@@ -5,7 +5,8 @@ import mongoose from "mongoose";
 import { OAuth2Client } from "google-auth-library";
 import { uploadProfilePicture, deleteProfilePicture } from "./img_service.js";
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
+import tokenBlacklistModel from "../../models/tokenBlacklistModel.js";
+import { hashToken } from "../../utils/token.util.js";
 import { generateToken } from "../../utils/generate.token.js";
 
 import userModel from "../../models/userModel.js";
@@ -948,4 +949,219 @@ const getAppleFullName = (fullName) => {
   }
 
   return "";
+};
+
+export const logoutService = async ({
+  userId,
+  token,
+  tokenPayload,
+}) => {
+  if (!userId) {
+    throw createError(401, "Unauthorized user.");
+  }
+
+  if (!token) {
+    throw createError(401, "Access token is required.");
+  }
+
+  const userExists = await userModel.exists({
+    _id: userId,
+  });
+
+  if (!userExists) {
+    throw createError(404, "User not found.");
+  }
+
+  /*
+   * authenticate middleware decoded payload bhej raha hai.
+   * Fallback ke liye token decode bhi kar rahe hain.
+   */
+  const decoded =
+    tokenPayload || jwt.decode(token);
+
+  if (!decoded?.exp) {
+    throw createError(
+      400,
+      "Token expiry information is missing."
+    );
+  }
+
+  const tokenHash = hashToken(token);
+  const expiresAt = new Date(decoded.exp * 1000);
+
+  /*
+   * Agar token already blacklist hai to logout ko
+   * idempotent rakhte hue error nahi denge.
+   */
+  await tokenBlacklistModel.updateOne(
+    {
+      tokenHash,
+    },
+    {
+      $setOnInsert: {
+        userId,
+        tokenHash,
+        expiresAt,
+        reason: "logout",
+      },
+    },
+    {
+      upsert: true,
+    }
+  );
+
+  return {
+    loggedOut: true,
+  };
+};
+
+export const deleteAccountService = async ({
+  userId,
+  currentPassword,
+  confirmation,
+}) => {
+  // 1. Check authentication
+  if (!userId) {
+    throw createError(401, "Unauthorized user.");
+  }
+
+  // 2. Prevent accidental account deletion
+  if (confirmation !== "DELETE") {
+    throw createError(
+      400,
+      'Please send confirmation as "DELETE".'
+    );
+  }
+
+  // 3. Find user with password
+  const user = await userModel
+    .findById(userId)
+    .select(
+      "+password authProvider profileImage name email phone"
+    );
+
+  if (!user) {
+    throw createError(404, "User not found.");
+  }
+
+  /*
+   * Local email/password account ke liye
+   * current password verify hoga.
+   *
+   * Google/Apple account me password required nahi hoga.
+   */
+  const requiresPassword =
+    user.authProvider === "local" ||
+    Boolean(user.password);
+
+  if (requiresPassword) {
+    if (!currentPassword) {
+      throw createError(
+        400,
+        "Current password is required."
+      );
+    }
+
+    const isPasswordCorrect = await bcrypt.compare(
+      currentPassword,
+      user.password
+    );
+
+    if (!isPasswordCorrect) {
+      throw createError(
+        401,
+        "Current password is incorrect."
+      );
+    }
+  }
+
+  // 4. User ke all assets find karo
+  const assets = await assetModel
+    .find({
+      userId: user._id,
+    })
+    .select("files")
+    .lean();
+
+  // 5. All asset image file IDs collect karo
+  const imageFileIds = [];
+
+  for (const asset of assets) {
+    if (!Array.isArray(asset.files)) {
+      continue;
+    }
+
+    for (const file of asset.files) {
+      const fileId =
+        file.fileId ||
+        file.publicId ||
+        file.public_id;
+
+      if (fileId) {
+        imageFileIds.push(fileId);
+      }
+    }
+  }
+
+  // 6. Profile image ID bhi collect karo
+  const profileImageFileId =
+    user.profileImage?.fileId ||
+    user.profileImage?.publicId ||
+    user.profileImage?.public_id;
+
+  if (profileImageFileId) {
+    imageFileIds.push(profileImageFileId);
+  }
+
+  // Duplicate IDs remove karo
+  const uniqueImageFileIds = [
+    ...new Set(imageFileIds),
+  ];
+
+  /*
+   * 7. User ke related records remove karo.
+   *
+   * Wishlist implement hone ke baad:
+   *
+   * await wishlistModel.deleteMany({
+   *   userId: user._id,
+   * });
+   */
+
+  await assetModel.deleteMany({
+    userId: user._id,
+  });
+
+  // User ko sabse last me delete karo
+  await userModel.findByIdAndDelete(user._id);
+
+  /*
+   * 8. Database records delete hone ke baad
+   * external storage images delete karo.
+   */
+  if (uniqueImageFileIds.length > 0) {
+    const deletionResults =
+      await Promise.allSettled(
+        uniqueImageFileIds.map((fileId) =>
+          deleteAssetFile(fileId)
+        )
+      );
+
+    const failedImageDeletions =
+      deletionResults.filter(
+        (result) =>
+          result.status === "rejected"
+      );
+
+    if (failedImageDeletions.length > 0) {
+      console.error(
+        "Some account images could not be deleted:",
+        failedImageDeletions
+      );
+    }
+  }
+
+  return {
+    deletedUserId: String(user._id),
+  };
 };

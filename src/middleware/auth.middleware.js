@@ -1,37 +1,110 @@
 import jwt from "jsonwebtoken";
+
 import userModel from "../models/userModel.js";
+import tokenBlacklistModel from "../models/tokenBlacklistModel.js";
+import { hashToken } from "../utils/token.util.js";
 
-const JWT_SECRET = process.env.JWT_SECRET;
-
-export async function authenticate(req, res, next) {
+export const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ message: "Missing or malformed token" });
+    if (
+      !authHeader ||
+      !authHeader.startsWith("Bearer ")
+    ) {
+      return res.status(401).json({
+        success: false,
+        message: "Access token is required.",
+      });
     }
 
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const token = authHeader.slice(7).trim();
 
-    const user = await userModel.findById(decoded.userId).select("-password");
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "Access token is required.",
+      });
+    }
+
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
+
+    const userId = decoded.userId || decoded.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token payload.",
+      });
+    }
+
+    const tokenHash = hashToken(token);
+
+    const blacklistedToken =
+      await tokenBlacklistModel.exists({
+        tokenHash,
+      });
+
+    if (blacklistedToken) {
+      return res.status(401).json({
+        success: false,
+        message:
+          "This session has been logged out. Please login again.",
+      });
+    }
+
+    const user = await userModel
+      .findById(userId)
+      .select("_id role isBlocked");
 
     if (!user) {
-      return res.status(401).json({ message: "User no longer exists" });
+      return res.status(401).json({
+        success: false,
+        message: "User account not found.",
+      });
     }
 
     if (user.isBlocked) {
-      return res.status(403).json({ message: "Your account has been blocked" });
+      return res.status(403).json({
+        success: false,
+        message:
+          "Your account has been blocked. Please contact support.",
+      });
     }
 
     req.user = {
       id: user._id,
-      email: user.email,
       role: user.role,
     };
 
+    req.token = token;
+    req.tokenPayload = decoded;
+
     next();
-  } catch (err) {
-    return res.status(401).json({ message: "Invalid or expired token" });
+  } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({
+        success: false,
+        message:
+          "Access token has expired. Please login again.",
+      });
+    }
+
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid access token.",
+      });
+    }
+
+    console.error("AUTHENTICATION ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to authenticate user.",
+    });
   }
-}
+};

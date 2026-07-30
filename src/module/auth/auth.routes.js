@@ -10,7 +10,9 @@ import {
     verifyResetOtp ,
     resetPassword ,
     googleAuthController,
-    appleLogin
+    appleLogin ,
+    logoutController,
+    deleteAccountController,
 } 
 from './auth.controller.js';
 import {authenticate} from '../../middleware/auth.middleware.js';
@@ -31,6 +33,18 @@ router.post('/reset_password', resetPassword);
 router.post("/google/android",
      googleAuthController);
 router.post("/apple_login", appleLogin);
+
+router.post(
+  "/logout",
+  authenticate,
+  logoutController
+);
+
+router.delete(
+  "/delete_account",
+  authenticate,
+  deleteAccountController
+);
 
 
 
