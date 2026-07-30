@@ -1,7 +1,17 @@
 import express from "express";
 import {authenticate} from "../../middleware/auth.middleware.js";
 import { uploadAssetImages } from "../../middleware/upload.js";
-import { addAssetController , getAssetsController , editAssetController , deleteAssetController} from "./asset.controller.js";
+import { addAssetController ,
+   getAssetsController , 
+   editAssetController , 
+   deleteAssetController,
+  addToWishlist_Controller,
+  removeFromWishlist_Controller,
+  getWishlist_Controller,
+  checkWishlist_Controller,
+   getAssetsWith_wishlist_Controller
+
+  } from "./asset.controller.js";
 
 const router = express.Router();
 
@@ -33,5 +43,15 @@ router.delete(
 );
 
 
+router.put("/add_to_wishlist/:assetId",authenticate,addToWishlist_Controller);
+router.delete("/remove_from_wishlist/:assetId",authenticate,removeFromWishlist_Controller);
+
+router.get("/get_wishlist",authenticate,getWishlist_Controller);
+router.get("/check/:assetId",authenticate,checkWishlist_Controller);
+
+
+//assets with wishlist item for aeach users
+
+router.get("/get_assets_with_wishlist",authenticate,getAssetsWith_wishlist_Controller)
 
 export default router;

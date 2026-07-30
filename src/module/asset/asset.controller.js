@@ -3,7 +3,26 @@ import {
   getAssetsService ,
   editAssetService ,
   deleteAssetService ,
+  addToWishlist_Service,
+  removeFromWishlist_Service,
+  getWishlist_Service,
+  checkWishlist_Service,
+  getAssetsWith_wishlist_Service
+
 } from "./asset.service.js";
+
+
+
+
+const getLoggedInUserId = (req) => {
+  return (
+    req.userId ||
+    req.user?.userId ||
+    req.user?._id ||
+    req.user?.id
+  );
+};
+
 
 export const addAssetController = async (req, res) => {
   try {
@@ -109,3 +128,143 @@ export const editAssetController = async (req, res) => {
     });
   }
 };
+
+
+
+/**
+ * Different authentication middlewares may store the user ID
+ * in different properties. This helper supports common formats.
+ */
+
+
+
+const sendErrorResponse = (res, error) => {
+  console.error("Wishlist error:", error);
+
+  return res
+    .status(error.status || error.statusCode || 500)
+    .json({
+      success: false,
+      message:
+        error.message || "Internal server error",
+    });
+};
+
+export async function addToWishlist_Controller(
+  req,
+  res
+) {
+  try {
+    const userId = getLoggedInUserId(req);
+    const { assetId } = req.params;
+
+    const result = await addToWishlist_Service(
+      userId,
+      assetId
+    );
+
+    return res.status(200).json(result);
+  } catch (error) {
+    return sendErrorResponse(res, error);
+  }
+}
+
+export async function removeFromWishlist_Controller(
+  req,
+  res
+) {
+  try {
+    const userId = getLoggedInUserId(req);
+    const { assetId } = req.params;
+
+    const result = await removeFromWishlist_Service(
+      userId,
+      assetId
+    );
+
+    return res.status(200).json(result);
+  } catch (error) {
+    return sendErrorResponse(res, error);
+  }
+}
+
+export async function getWishlist_Controller(
+  req,
+  res
+) {
+  try {
+    const userId = getLoggedInUserId(req);
+
+    const {
+      page = 1,
+      limit = 10,
+    } = req.query;
+
+    const result = await getWishlist_Service(
+      userId,
+      page,
+      limit
+    );
+
+    return res.status(200).json(result);
+  } catch (error) {
+    return sendErrorResponse(res, error);
+  }
+}
+
+export async function checkWishlist_Controller(
+  req,
+  res
+) {
+  try {
+    const userId = getLoggedInUserId(req);
+    const { assetId } = req.params;
+
+    const result = await checkWishlist_Service(
+      userId,
+      assetId
+    );
+
+    return res.status(200).json(result);
+  } catch (error) {
+    return sendErrorResponse(res, error);
+  }
+}
+
+
+
+export async function getAssetsWith_wishlist_Controller(
+  req,
+  res
+) {
+  try {
+    const userId = getLoggedInUserId(req);
+
+    const page = req.query.page || 1;
+
+    const result = await getAssetsWith_wishlist_Service(
+      userId,
+      page
+    );
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error(
+      "Get assets error:",
+      error
+    );
+
+    return res
+      .status(
+        error.status ||
+          error.statusCode ||
+          500
+      )
+      .json({
+        success: false,
+        message:
+          error.message ||
+          "Internal server error",
+      });
+  }
+}

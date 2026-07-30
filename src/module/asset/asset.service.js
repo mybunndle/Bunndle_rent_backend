@@ -1,6 +1,14 @@
 import mongoose from "mongoose";
 import assetModel from "../../models/assetModel.js";
 import userModel from "../../models/userModel.js";
+import wishlistModel from "../../models/wishlistModel.js";
+
+
+
+
+
+
+
 
 import { uploadAssetFile, deleteAssetFile } from "./img_upload.service.js";
 
@@ -328,3 +336,331 @@ export const deleteAssetService = async ({ assetId, userId }) => {
   // 8. Return deleted asset
   return deletedAssetData;
 };
+
+
+
+
+
+const validateObjectId = (id, fieldName) => {
+  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+    throw createError(400, `Invalid ${fieldName}`);
+  }
+};
+
+/**
+ * Add asset to the logged-in user's wishlist.
+ * updateOne + upsert makes this API idempotent:
+ * already wishlisted asset will not be added twice.
+ */
+export async function addToWishlist_Service(userId, assetId) {
+  validateObjectId(userId, "user ID");
+  validateObjectId(assetId, "asset ID");
+
+  const assetExists = await assetModel.exists({
+    _id: assetId,
+  });
+
+  if (!assetExists) {
+    throw createError(404, "Asset not found");
+  }
+
+  await wishlistModel.updateOne(
+    {
+      userId,
+      assetId,
+    },
+    {
+      $setOnInsert: {
+        userId,
+        assetId,
+      },
+    },
+    {
+      upsert: true,
+    }
+  );
+
+  return {
+    success: true,
+    message: "Asset added to wishlist successfully",
+    data: {
+      assetId,
+      isWishlisted: true,
+    },
+  };
+}
+
+/**
+ * Remove asset from the logged-in user's wishlist.
+ */
+export async function removeFromWishlist_Service(
+  userId,
+  assetId
+) {
+  validateObjectId(userId, "user ID");
+  validateObjectId(assetId, "asset ID");
+
+  await wishlistModel.deleteOne({
+    userId,
+    assetId,
+  });
+
+  return {
+    success: true,
+    message: "Asset removed from wishlist successfully",
+    data: {
+      assetId,
+      isWishlisted: false,
+    },
+  };
+}
+
+/**
+ * Get logged-in user's complete wishlist with asset details.
+ */
+export async function getWishlist_Service(
+  userId,
+  page = 1,
+  limit = 10
+) {
+  validateObjectId(userId, "user ID");
+
+  const currentPage = Math.max(
+    Number.parseInt(page, 10) || 1,
+    1
+  );
+
+  const pageLimit = Math.min(
+    Math.max(Number.parseInt(limit, 10) || 10, 1),
+    50
+  );
+
+  const skip = (currentPage - 1) * pageLimit;
+
+  const filter = {
+    userId,
+  };
+
+  const [wishlistItems, totalItems] = await Promise.all([
+    wishlistModel
+      .find(filter)
+      .populate({
+        path: "assetId",
+      })
+      .sort({
+        createdAt: -1,
+      })
+      .skip(skip)
+      .limit(pageLimit)
+      .lean(),
+
+    wishlistModel.countDocuments(filter),
+  ]);
+
+  /*
+   * assetId null ho sakta hai agar asset delete ho gaya ho
+   * aur related wishlist record cleanup nahi hua.
+   */
+  const assets = wishlistItems
+    .filter((item) => item.assetId)
+    .map((item) => ({
+      ...item.assetId,
+      wishlistId: item._id,
+      isWishlisted: true,
+      wishlistedAt: item.createdAt,
+    }));
+
+  const totalPages = Math.ceil(
+    totalItems / pageLimit
+  );
+
+  return {
+    success: true,
+    message: "Wishlist fetched successfully",
+    data: assets,
+    pagination: {
+      currentPage,
+      itemsPerPage: pageLimit,
+      totalItems,
+      totalPages,
+      hasNextPage: currentPage < totalPages,
+      hasPreviousPage: currentPage > 1,
+      nextPage:
+        currentPage < totalPages
+          ? currentPage + 1
+          : null,
+      previousPage:
+        currentPage > 1
+          ? currentPage - 1
+          : null,
+    },
+  };
+}
+
+/**
+ * Optional API: check a single asset's wishlist status.
+ */
+export async function checkWishlist_Service(
+  userId,
+  assetId
+) {
+  validateObjectId(userId, "user ID");
+  validateObjectId(assetId, "asset ID");
+
+  const wishlistExists = await wishlistModel.exists({
+    userId,
+    assetId,
+  });
+
+  return {
+    success: true,
+    message: "Wishlist status fetched successfully",
+    data: {
+      assetId,
+      isWishlisted: Boolean(wishlistExists),
+    },
+  };
+}
+
+
+
+
+
+
+export async function getAssetsWith_wishlist_Service(
+  userId,
+  page = 1
+) {
+  if (!userId) {
+    throw createError(
+      401,
+      "Authentication is required"
+    );
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    throw createError(400, "Invalid user ID");
+  }
+
+  const currentPage = Number.parseInt(page, 10);
+
+  if (
+    Number.isNaN(currentPage) ||
+    currentPage < 1
+  ) {
+    throw createError(
+      400,
+      "Page must be a positive integer"
+    );
+  }
+
+  const skip =
+    (currentPage - 1) * ASSETS_PER_PAGE;
+
+  const assetFilter = {};
+
+  /*
+   * Only approved assets dikhane hain toh:
+   *
+   * const assetFilter = {
+   *   isapproved: "approved",
+   * };
+   */
+
+  const [assets, totalAssets] =
+    await Promise.all([
+      assetModel
+        .find(assetFilter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(ASSETS_PER_PAGE)
+        .lean(),
+
+      assetModel.countDocuments(assetFilter),
+    ]);
+
+  /*
+   * Current page ke sabhi asset IDs.
+   */
+  const assetIds = assets.map(
+    (asset) => asset._id
+  );
+
+  let wishlistedIds = new Set();
+
+  /*
+   * Current user ne current page ke kaunse
+   * assets wishlist kiye hain.
+   *
+   * Ye ek hi database query hai.
+   */
+  if (assetIds.length > 0) {
+    const wishlistItems =
+      await wishlistModel
+        .find({
+          userId,
+          assetId: {
+            $in: assetIds,
+          },
+        })
+        .select({
+          assetId: 1,
+          _id: 0,
+        })
+        .lean();
+
+    wishlistedIds = new Set(
+      wishlistItems.map((item) =>
+        item.assetId.toString()
+      )
+    );
+  }
+
+  /*
+   * Har asset ke saath user-specific
+   * isWishlisted true/false add hoga.
+   */
+  const assetsWithWishlistStatus =
+    assets.map((asset) => ({
+      ...asset,
+
+      isWishlisted: wishlistedIds.has(
+        asset._id.toString()
+      ),
+    }));
+
+  const totalPages = Math.ceil(
+    totalAssets / ASSETS_PER_PAGE
+  );
+
+  return {
+    
+    success: true,
+    message: "Assets fetched successfully",
+    count: assets.length,
+    data: assetsWithWishlistStatus,
+
+    pagination: {
+      currentPage,
+      assetsPerPage: ASSETS_PER_PAGE,
+      totalAssets,
+      totalPages,
+
+      hasNextPage:
+        currentPage < totalPages,
+
+      hasPreviousPage:
+        currentPage > 1,
+
+      nextPage:
+        currentPage < totalPages
+          ? currentPage + 1
+          : null,
+
+      previousPage:
+        currentPage > 1
+          ? currentPage - 1
+          : null,
+    },
+  };
+}
