@@ -1,12 +1,13 @@
 import express from "express";
 import mongoose from "mongoose";
-
+import cors from "cors";
 import authRoutes from "./module/auth/auth.routes.js";
 import assetRoutes from "./module/asset/asset.routes.js";
 import homeRoutes from "./module/Home_page/home.routes.js";
 
 const app = express();
 
+app.use(cors()); 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
