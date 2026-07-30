@@ -5,6 +5,14 @@ import {
   forgotPasswordSchema,
 } from "./auth.validation.js";
 
+import sendEmail from "../../utils/email.js";
+
+import adminQuickConnectTemplate from
+  "../../utils/adminQuickConnectTemplate.js";
+
+import userEmailTemplate from
+  "../../utils/userQuickConnectTemplate.js";
+
 import {
   registerUser_Service,
   loginUser_Service,
@@ -456,3 +464,133 @@ export const deleteAccountController = async (
   }
 };
 
+
+
+const emailRegex =
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const cleanValue = (value) => {
+  return typeof value === "string"
+    ? value.trim()
+    : "";
+};
+
+export const quickConnect = async (
+  req,
+  res,
+  next
+) => {
+  try {
+    const name = cleanValue(req.body.name);
+
+    const email = cleanValue(
+      req.body.email
+    ).toLowerCase();
+
+    const message = cleanValue(
+      req.body.message
+    );
+
+    if (!name || !email || !message) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Name, email and message are required.",
+      });
+    }
+
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Please enter a valid email address.",
+      });
+    }
+
+    if (name.length > 100) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Name cannot exceed 100 characters.",
+      });
+    }
+
+    if (message.length > 2000) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Message cannot exceed 2000 characters.",
+      });
+    }
+
+    if (!process.env.ADMIN_EMAIL) {
+      const error = new Error(
+        "ADMIN_EMAIL is not configured."
+      );
+
+      error.statusCode = 500;
+      throw error;
+    }
+
+    const adminEmailResult =
+      await sendEmail({
+        to: process.env.ADMIN_EMAIL,
+
+        subject:
+          `New Quick Connect Request - ${name}`,
+
+        replyTo: email,
+
+        html: adminQuickConnectTemplate({
+          name,
+          email,
+          message,
+        }),
+      });
+
+    const userEmailResult =
+      await sendEmail({
+        to: email,
+
+        subject:
+          "We received your Quick Connect request",
+
+        html: userEmailTemplate({
+          name,
+          email,
+          message,
+        }),
+      });
+
+    console.log(
+      "✅ QUICK CONNECT SUBMITTED:",
+      {
+        name,
+        email,
+        adminMessageId:
+          adminEmailResult.messageId,
+        userMessageId:
+          userEmailResult.messageId,
+      }
+    );
+
+    return res.status(200).json({
+      success: true,
+
+      message:
+        "Request submitted successfully. We will contact you soon.",
+
+      data: {
+        name,
+        email,
+      },
+    });
+  } catch (error) {
+    console.error(
+      "❌ QUICK CONNECT ERROR:",
+      error.message
+    );
+
+    next(error);
+  }
+};

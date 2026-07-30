@@ -13,6 +13,7 @@ import {
   appleLogin,
   logoutController,
   deleteAccountController,
+  quickConnect,
 } from "./auth.controller.js";
 import { authenticate } from "../../middleware/auth.middleware.js";
 
@@ -38,5 +39,7 @@ router.post("/apple_login", appleLogin);
 router.post("/logout", authenticate, logoutController);
 
 router.delete("/delete_account", authenticate, deleteAccountController);
+
+router.post("/quick_connect", authenticate, quickConnect);
 
 export default router;
