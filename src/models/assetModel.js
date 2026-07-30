@@ -45,6 +45,7 @@ const assetSchema = new mongoose.Schema(
 
     subCategory: {
       type: String,
+      
     },
 
     purchaseYear: {

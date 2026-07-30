@@ -3,13 +3,6 @@ import assetModel from "../../models/assetModel.js";
 import userModel from "../../models/userModel.js";
 import wishlistModel from "../../models/wishlistModel.js";
 
-
-
-
-
-
-
-
 import { uploadAssetFile, deleteAssetFile } from "./img_upload.service.js";
 
 const createError = (statusCode, message) => {
@@ -104,7 +97,7 @@ export const addAssetService = async ({ userId, body = {}, files = [] }) => {
   }
 };
 
-const ASSETS_PER_PAGE = 2;
+const ASSETS_PER_PAGE = 10;
 
 export const getAssetsService = async ({ page = 1 }) => {
   const currentPage = Number.parseInt(page, 10);
