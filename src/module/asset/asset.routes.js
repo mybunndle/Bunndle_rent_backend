@@ -56,4 +56,10 @@ router.get(
   getAssetsWith_wishlist_Controller
 );
 
+router.get(
+  "/get_assets_with_wishlist",
+  authenticate,
+  getAssetsWith_wishlist_Controller
+);
+
 export default router;
