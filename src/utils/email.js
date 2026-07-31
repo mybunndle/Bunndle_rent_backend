@@ -8,11 +8,16 @@ import {
 dotenv.config();
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: process.env.EMAIL_HOST,
+  port: Number(process.env.EMAIL_PORT) || 587,
+
+  // Port 587 ke liye false.
+  // Port 465 use karne par true karna hota hai.
+  secure: false,
 
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    user: process.env.EMAIL_USER?.trim(),
+    pass: process.env.EMAIL_PASS?.trim(),
   },
 
   connectionTimeout: 20000,
@@ -23,11 +28,11 @@ const transporter = nodemailer.createTransport({
 transporter.verify((error) => {
   if (error) {
     console.error(
-      "❌ GMAIL SMTP VERIFY ERROR:",
+      "❌ BREVO SMTP VERIFY ERROR:",
       error.message
     );
   } else {
-    console.log("✅ GMAIL SMTP READY");
+    console.log("✅ BREVO SMTP READY");
   }
 });
 
@@ -38,8 +43,17 @@ export const sendEmail = async ({
   replyTo = null,
 }) => {
   try {
+    if (!to) {
+      const error = new Error(
+        "Recipient email is required."
+      );
+
+      error.statusCode = 400;
+      throw error;
+    }
+
     const info = await transporter.sendMail({
-      from: `"Bunndle Rent" <${process.env.EMAIL_USER}>`,
+      from: `"Bunndle Rent" <${process.env.EMAIL_FROM}>`,
       to,
       subject,
       html,
@@ -63,6 +77,10 @@ export const sendEmail = async ({
       "❌ EMAIL SEND ERROR:",
       error.message
     );
+
+    if (error.statusCode) {
+      throw error;
+    }
 
     const emailError = new Error(
       "Unable to send email."

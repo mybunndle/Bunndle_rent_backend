@@ -523,9 +523,9 @@ export const quickConnect = async (
       });
     }
 
-    if (!process.env.ADMIN_EMAIL) {
+    if (!process.env.EMAIL_FROM) {
       const error = new Error(
-        "ADMIN_EMAIL is not configured."
+        "EMAIL_FROM is not configured."
       );
 
       error.statusCode = 500;
@@ -534,7 +534,7 @@ export const quickConnect = async (
 
     const adminEmailResult =
       await sendEmail({
-        to: process.env.ADMIN_EMAIL,
+        to: process.env.EMAIL_FROM,
 
         subject:
           `New Quick Connect Request - ${name}`,
