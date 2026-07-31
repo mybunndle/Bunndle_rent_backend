@@ -4,7 +4,7 @@ import cors from "cors";
 import authRoutes from "./module/auth/auth.routes.js";
 import assetRoutes from "./module/asset/asset.routes.js";
 import homeRoutes from "./module/Home_page/home.routes.js";
-
+import enquiryRoutes from "./module/equiry/enquiry.routes.js";
 const app = express();
 
 // cors
@@ -43,7 +43,8 @@ app.get("/health/db", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/asset", assetRoutes);
-app.use("/api/home", homeRoutes)
+app.use("/api/home", homeRoutes);
+app.use("/api/enquiry", enquiryRoutes);
 
 app.use((req, res) => {
   return res.status(404).json({

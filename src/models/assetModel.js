@@ -10,7 +10,6 @@ const assetFileSchema = new mongoose.Schema(
     _id: false,
   }
 );
-
 const assetSchema = new mongoose.Schema(
   {
     userId: {
