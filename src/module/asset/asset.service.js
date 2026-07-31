@@ -550,18 +550,172 @@ const getMatchingValue = (receivedValue, allowedValues) => {
   );
 };
 
+// export const getAssetsWith_wishlist_Service = async ({
+//   userId,
+//   page = 1,
+//   category,
+//   subCategory,
+// }) => {
+//   const currentPage = Number.parseInt(page, 10);
+
+//   if (!Number.isInteger(currentPage) || currentPage < 1) {
+//     throw createError(400, "Page must be a positive integer.");
+//   }
+
+//   const filter = {};
+
+//   let validCategory = null;
+//   let validSubCategory = null;
+
+//   /*
+//    * Category is optional.
+//    * When category is not passed, all assets are returned.
+//    */
+//   if (category) {
+//     validCategory = getMatchingValue(
+//       category,
+//       ALLOWED_CATEGORIES
+//     );
+
+//     if (!validCategory) {
+//       throw createError(
+//         400,
+//         `Invalid category. Allowed categories are: ${ALLOWED_CATEGORIES.join(
+//           ", "
+//         )}`
+//       );
+//     }
+
+//     filter.category = validCategory;
+//   }
+
+//   /*
+//    * Subcategory cannot be passed without category.
+//    */
+//   if (subCategory && !validCategory) {
+//     throw createError(
+//       400,
+//       "Category is required when subcategory is provided."
+//     );
+//   }
+
+//   /*
+//    * Subcategory is only available for Heavy-Machinery.
+//    */
+//   if (
+//     subCategory &&
+//     validCategory !== "Heavy-Machinery"
+//   ) {
+//     throw createError(
+//       400,
+//       "Subcategory is only available for Heavy-Machinery."
+//     );
+//   }
+
+//   if (
+//     validCategory === "Heavy-Machinery" &&
+//     subCategory
+//   ) {
+//     validSubCategory = getMatchingValue(
+//       subCategory,
+//       HEAVY_MACHINERY_SUBCATEGORIES
+//     );
+
+//     if (!validSubCategory) {
+//       throw createError(
+//         400,
+//         `Invalid subcategory. Allowed subcategories are: ${HEAVY_MACHINERY_SUBCATEGORIES.join(
+//           ", "
+//         )}`
+//       );
+//     }
+
+//     filter.subCategory = validSubCategory;
+//   }
+
+//   const skip = (currentPage - 1) * ASSETS_PER_PAGE;
+
+//   const [assets, totalAssets] = await Promise.all([
+//     assetModel
+//       .find(filter)
+//       .sort({ createdAt: -1 })
+//       .skip(skip)
+//       .limit(ASSETS_PER_PAGE)
+//       .lean(),
+
+//     assetModel.countDocuments(filter),
+//   ]);
+
+//   const assetIds = assets.map((asset) => asset._id);
+
+//   let wishlistedAssetIds = new Set();
+
+//   if (
+//     userId &&
+//     mongoose.Types.ObjectId.isValid(userId) &&
+//     assetIds.length > 0
+//   ) {
+//     const wishlistItems = await wishlistModel
+//       .find({
+//         userId,
+//         assetId: {
+//           $in: assetIds,
+//         },
+//       })
+//       .select("assetId -_id")
+//       .lean();
+
+//     wishlistedAssetIds = new Set(
+//       wishlistItems.map((item) =>
+//         item.assetId.toString()
+//       )
+//     );
+//   }
+
+//   const assetsWithWishlist = assets.map((asset) => ({
+//     ...asset,
+//     isWishlisted: wishlistedAssetIds.has(
+//       asset._id.toString()
+//     ),
+//   }));
+
+//   const totalPages = Math.ceil(
+//     totalAssets / ASSETS_PER_PAGE
+//   );
+
+//   return {
+//     success: true,
+//     message: "Assets fetched successfully.",
+//     count: assetsWithWishlist.length,
+//     data: assetsWithWishlist,
+//     filters: {
+//       category: validCategory,
+//       subCategory: validSubCategory,
+//     },
+//     pagination: {
+//       currentPage,
+//       assetsPerPage: ASSETS_PER_PAGE,
+//       totalAssets,
+//       totalPages,
+//       hasNextPage: currentPage < totalPages,
+//       hasPreviousPage: currentPage > 1,
+//       nextPage:
+//         currentPage < totalPages
+//           ? currentPage + 1
+//           : null,
+//       previousPage:
+//         currentPage > 1
+//           ? currentPage - 1
+//           : null,
+//     },
+//   };
+// };
+
 export const getAssetsWith_wishlist_Service = async ({
   userId,
-  page = 1,
   category,
   subCategory,
 }) => {
-  const currentPage = Number.parseInt(page, 10);
-
-  if (!Number.isInteger(currentPage) || currentPage < 1) {
-    throw createError(400, "Page must be a positive integer.");
-  }
-
   const filter = {};
 
   let validCategory = null;
@@ -633,18 +787,13 @@ export const getAssetsWith_wishlist_Service = async ({
     filter.subCategory = validSubCategory;
   }
 
-  const skip = (currentPage - 1) * ASSETS_PER_PAGE;
-
-  const [assets, totalAssets] = await Promise.all([
-    assetModel
-      .find(filter)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(ASSETS_PER_PAGE)
-      .lean(),
-
-    assetModel.countDocuments(filter),
-  ]);
+  /*
+   * Fetch all matching assets without pagination.
+   */
+  const assets = await assetModel
+    .find(filter)
+    .sort({ createdAt: -1 })
+    .lean();
 
   const assetIds = assets.map((asset) => asset._id);
 
@@ -679,10 +828,6 @@ export const getAssetsWith_wishlist_Service = async ({
     ),
   }));
 
-  const totalPages = Math.ceil(
-    totalAssets / ASSETS_PER_PAGE
-  );
-
   return {
     success: true,
     message: "Assets fetched successfully.",
@@ -691,22 +836,6 @@ export const getAssetsWith_wishlist_Service = async ({
     filters: {
       category: validCategory,
       subCategory: validSubCategory,
-    },
-    pagination: {
-      currentPage,
-      assetsPerPage: ASSETS_PER_PAGE,
-      totalAssets,
-      totalPages,
-      hasNextPage: currentPage < totalPages,
-      hasPreviousPage: currentPage > 1,
-      nextPage:
-        currentPage < totalPages
-          ? currentPage + 1
-          : null,
-      previousPage:
-        currentPage > 1
-          ? currentPage - 1
-          : null,
     },
   };
 };
