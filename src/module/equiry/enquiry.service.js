@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 import enquiryModel from "../../models/enquiryModel.js";
 import AssetModel from "../../models/assetModel.js";
+import userModel from "../../models/userModel.js";
 
 const createError = (statusCode, message) => {
   const error = new Error(message);
@@ -299,7 +300,7 @@ export const addAdminRemark_Service = async ({
 
   const admin = await userModel
     .findById(adminId)
-    .select("name role")
+    .select("name type")
     .lean();
 
   if (!admin) {
@@ -309,7 +310,7 @@ export const addAdminRemark_Service = async ({
     );
   }
 
-  if (admin.role !== "admin") {
+  if (admin.type !== "ADMIN") {
     throw createError(
       403,
       "Only an admin can add remarks."
@@ -324,8 +325,7 @@ export const addAdminRemark_Service = async ({
           adminRemarks: {
             remark: remark.trim(),
             updatedBy: adminId,
-            updatedByName:
-              admin.name || "Admin",
+            updatedByName: admin.name || "Admin",
             updatedAt: new Date(),
           },
         },
@@ -337,11 +337,11 @@ export const addAdminRemark_Service = async ({
     )
     .populate(
       "userId",
-      "name email phone profileImage"
+      "name email phone profileImage type"
     )
     .populate(
       "adminRemarks.updatedBy",
-      "name email phone role"
+      "name email phone type profileImage"
     );
 
   if (!enquiry) {

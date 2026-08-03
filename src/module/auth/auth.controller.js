@@ -5,6 +5,8 @@ import {
   forgotPasswordSchema,
 } from "./auth.validation.js";
 
+import quickConnectModel from "../../models/quickConnectModel.js";
+
 import sendEmail from "../../utils/email.js";
 
 import adminQuickConnectTemplate from
@@ -464,8 +466,6 @@ export const deleteAccountController = async (
   }
 };
 
-
-
 const emailRegex =
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -481,7 +481,9 @@ export const quickConnect = async (
   next
 ) => {
   try {
-    const name = cleanValue(req.body.name);
+    const name = cleanValue(
+      req.body.name
+    );
 
     const email = cleanValue(
       req.body.email
@@ -491,6 +493,13 @@ export const quickConnect = async (
       req.body.message
     );
 
+    const type = cleanValue(
+      req.body.type
+    );
+
+    /*
+     * Required fields validation
+     */
     if (!name || !email || !message) {
       return res.status(400).json({
         success: false,
@@ -499,6 +508,9 @@ export const quickConnect = async (
       });
     }
 
+    /*
+     * Email format validation
+     */
     if (!emailRegex.test(email)) {
       return res.status(400).json({
         success: false,
@@ -507,6 +519,9 @@ export const quickConnect = async (
       });
     }
 
+    /*
+     * Name length validation
+     */
     if (name.length > 100) {
       return res.status(400).json({
         success: false,
@@ -515,6 +530,9 @@ export const quickConnect = async (
       });
     }
 
+    /*
+     * Message length validation
+     */
     if (message.length > 2000) {
       return res.status(400).json({
         success: false,
@@ -523,66 +541,159 @@ export const quickConnect = async (
       });
     }
 
-    if (!process.env.EMAIL_FROM) {
-      const error = new Error(
-        "EMAIL_FROM is not configured."
-      );
-
-      error.statusCode = 500;
-      throw error;
+    /*
+     * Optional type length validation
+     */
+    if (type && type.length > 100) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Type cannot exceed 100 characters.",
+      });
     }
 
-    const adminEmailResult =
-      await sendEmail({
-        to: process.env.EMAIL_FROM,
-
-        subject:
-          `New Quick Connect Request - ${name}`,
-
-        replyTo: email,
-
-        html: adminQuickConnectTemplate({
-          name,
-          email,
-          message,
-        }),
-      });
-
-    const userEmailResult =
-      await sendEmail({
-        to: email,
-
-        subject:
-          "We received your Quick Connect request",
-
-        html: userEmailTemplate({
-          name,
-          email,
-          message,
-        }),
-      });
-
-    console.log(
-      "✅ QUICK CONNECT SUBMITTED:",
-      {
+    /*
+     * Quick Connect request ko pehle
+     * MongoDB me save kar rahe hain.
+     *
+     * Remarks create time par empty rahenge.
+     * Remarks baad me separate API se add honge.
+     */
+    const quickConnectData =
+      await quickConnectModel.create({
         name,
         email,
-        adminMessageId:
-          adminEmailResult.messageId,
-        userMessageId:
-          userEmailResult.messageId,
+        message,
+        type: type || null,
+        remarks: [],
+      });
+
+    /*
+     * Email status variables
+     */
+    let adminEmailSent = false;
+    let userEmailSent = false;
+
+    let adminMessageId = null;
+    let userMessageId = null;
+
+    /*
+     * Admin email send
+     */
+    try {
+      if (!process.env.EMAIL_FROM) {
+        throw new Error(
+          "EMAIL_FROM is not configured."
+        );
+      }
+
+      const adminEmailResult =
+        await sendEmail({
+          to: "info@bunndle.in",
+
+          subject:
+            `New Quick Connect Request - ${name}`,
+
+          replyTo: email,
+
+          html:
+            adminQuickConnectTemplate({
+              name,
+              email,
+              message,
+              type: type || null,
+            }),
+        });
+
+      adminEmailSent = true;
+
+      adminMessageId =
+        adminEmailResult.messageId;
+    } catch (adminEmailError) {
+      console.error(
+        "❌ ADMIN QUICK CONNECT EMAIL ERROR:",
+        adminEmailError.message
+      );
+    }
+
+    /*
+     * User confirmation email send
+     */
+    try {
+      const userEmailResult =
+        await sendEmail({
+          to: email,
+
+          subject:
+            "We received your Quick Connect request",
+
+          html: userEmailTemplate({
+            name,
+            email,
+            message,
+            type: type || null,
+          }),
+        });
+
+      userEmailSent = true;
+
+      userMessageId =
+        userEmailResult.messageId;
+    } catch (userEmailError) {
+      console.error(
+        "❌ USER QUICK CONNECT EMAIL ERROR:",
+        userEmailError.message
+      );
+    }
+
+    /*
+     * Server log
+     */
+    console.log(
+      "✅ QUICK CONNECT SAVED:",
+      {
+        quickConnectId:
+          quickConnectData._id,
+
+        name,
+        email,
+
+        adminEmailSent,
+        userEmailSent,
+
+        adminMessageId,
+        userMessageId,
       }
     );
 
-    return res.status(200).json({
+    /*
+     * Final API response
+     */
+    return res.status(201).json({
       success: true,
 
       message:
-        "Request submitted successfully. We will contact you soon.",
+        adminEmailSent &&
+        userEmailSent
+          ? "Request submitted successfully. We will contact you soon."
+          : "Request saved successfully, but one or more emails could not be sent.",
+
+      emailStatus: {
+        adminEmailSent,
+        userEmailSent,
+      },
 
       data: {
-        name,
-        email,
+        _id: quickConnectData._id,
+        name: quickConnectData.name,
+        email: quickConnectData.email,
+        message: quickConnectData.message,
+        type: quickConnectData.type,
+        remarks: quickConnectData.remarks,
+        createdAt:
+          quickConnectData.createdAt,
+        updatedAt:
+          quickConnectData.updatedAt,
       },
     });
   } catch (error) {

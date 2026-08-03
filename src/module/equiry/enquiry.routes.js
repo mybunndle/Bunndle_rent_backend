@@ -40,7 +40,7 @@ router.get(
 );
 
 router.patch(
-  "/admin-remark/:enquiryId",
+  "/admin_remark/:enquiryId",
   authenticate,
   addAdminRemark
 );

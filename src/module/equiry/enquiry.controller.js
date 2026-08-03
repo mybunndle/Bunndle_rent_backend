@@ -6,6 +6,9 @@ import {
   addAdminRemark_Service,
 } from "./enquiry.service.js";
 
+import AssetModel from "../../models/assetModel.js";
+
+
 const handleControllerError = (
   error,
   res,
@@ -126,7 +129,8 @@ export const getMyEnquiryAssetIds = async (
 export const getAllEnquiries = async (req, res) => {
   try {
     // Admin check using authenticate middleware role
-    if (req.user?.role !== "admin") {
+    console.log(req.user);
+    if (req.user?.type !== "ADMIN") {
       return res.status(403).json({
         success: false,
         message:
@@ -159,7 +163,7 @@ export const getAllEnquiries = async (req, res) => {
  */
 export const addAdminRemark = async (req, res) => {
   try {
-    if (req.user?.role !== "admin") {
+    if (req.user?.type !== "ADMIN") {
       return res.status(403).json({
         success: false,
         message:
@@ -170,7 +174,8 @@ export const addAdminRemark = async (req, res) => {
     const { enquiryId } = req.params;
     const { remark } = req.body;
 
-    const adminId = req.user?.id;
+    const adminId = req.user?._id;
+    console.log(adminId)
 
     const result = await addAdminRemark_Service({
       enquiryId,
