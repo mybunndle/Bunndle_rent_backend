@@ -55,7 +55,7 @@ export const addAssetController = async (req, res) => {
 export const deleteAssetController = async (req, res) => {
   try {
     const assetId = req.params.id;
-    const userId = req.user?.id;
+    const userId = req.user?._id;
 
     const deletedAsset = await deleteAssetService({
       assetId,
@@ -105,7 +105,8 @@ export const getAssetsController = async (req, res) => {
 
 export const editAssetController = async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?._id;
+  
     const assetId = req.params.id;
 
     const updatedAsset = await editAssetService({

@@ -30,6 +30,11 @@ const userSchema = new mongoose.Schema(
         return this.authProvider === "local";
       },
     },
+    type:{
+      type: String,
+      enum: ["user", "admin"],
+      default: "user"
+    },
 
     /* ===== AUTH ===== */
     authProvider: {
