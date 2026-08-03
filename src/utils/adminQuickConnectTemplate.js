@@ -17,187 +17,571 @@ const adminQuickConnectTemplate = ({
   const safeMessage = escapeHtml(message);
 
   return `
-    <!DOCTYPE html>
-    <html lang="en">
-      <head>
-        <meta charset="UTF-8" />
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1.0"
-        />
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
 
-        <title>New Quick Support Request</title>
-      </head>
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
 
-      <body
-        style="
-          margin: 0;
-          padding: 0;
-          background-color: #f3f7fb;
-          font-family: Arial, Helvetica, sans-serif;
-          color: #111827;
-        "
-      >
+  <title>New Quick Connect Request</title>
+</head>
+
+<body
+  bgcolor="#f3f7fb"
+  style="
+    margin: 0;
+    padding: 0;
+    background-color: #f3f7fb;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #111827;
+  "
+>
+  <table
+    role="presentation"
+    width="100%"
+    cellspacing="0"
+    cellpadding="0"
+    border="0"
+    bgcolor="#f3f7fb"
+    style="
+      width: 100%;
+      background-color: #f3f7fb;
+      padding: 18px 8px;
+    "
+  >
+    <tr>
+      <td align="center">
+
         <table
           role="presentation"
           width="100%"
           cellspacing="0"
           cellpadding="0"
           border="0"
+          bgcolor="#ffffff"
           style="
             width: 100%;
-            background-color: #f3f7fb;
-            padding: 24px 10px;
+            max-width: 560px;
+            background-color: #ffffff;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(14, 61, 105, 0.10);
           "
         >
+
+          <!-- Header -->
           <tr>
-            <td align="center">
+            <td
+              align="center"
+              bgcolor="#0f4f91"
+              style="
+                background-color: #0f4f91;
+                padding: 26px 18px 24px;
+              "
+            >
+
+              <!-- Logo -->
+              <table
+                role="presentation"
+                cellspacing="0"
+                cellpadding="0"
+                border="0"
+                style="margin: 0 auto 14px;"
+              >
+                <tr>
+                  <td
+                    align="center"
+                    width="104"
+                    height="104"
+                    bgcolor="#ffffff"
+                    style="
+                      width: 104px;
+                      height: 104px;
+                      background-color: #ffffff;
+                      border-radius: 14px;
+                      overflow: hidden;
+                      padding: 0;
+                      line-height: 0;
+                    "
+                  >
+                    <img
+                      src="https://ik.imagekit.io/bunndle/logo/WhatsApp%20Image%202026-07-10%20at%2012.02.32.jpeg"
+                      alt="Bunndle"
+                      width="104"
+                      style="
+                        display: block;
+                        width: 104px;
+                        max-width: 104px;
+                        height: auto;
+                        background-color: #ffffff;
+                        border: 0;
+                        margin: 0 auto;
+                      "
+                    />
+                  </td>
+                </tr>
+              </table>
+
+              <h1
+                style="
+                  margin: 0;
+                  color: #ffffff;
+                  font-family: Georgia, 'Times New Roman', serif;
+                  font-size: 27px;
+                  line-height: 1.25;
+                  font-weight: 700;
+                "
+              >
+                New Quick Connect<br />Request
+              </h1>
+
+              <!-- Orange Divider -->
+              <table
+                role="presentation"
+                cellspacing="0"
+                cellpadding="0"
+                border="0"
+                style="margin: 12px auto 10px;"
+              >
+                <tr>
+                  <td
+                    width="78"
+                    style="
+                      width: 78px;
+                      height: 1px;
+                      background-color: #f58220;
+                      font-size: 0;
+                      line-height: 0;
+                    "
+                  ></td>
+
+                  <td
+                    style="
+                      padding: 0 9px;
+                      color: #f58220;
+                      font-size: 11px;
+                    "
+                  >
+                    ◆
+                  </td>
+
+                  <td
+                    width="78"
+                    style="
+                      width: 78px;
+                      height: 1px;
+                      background-color: #f58220;
+                      font-size: 0;
+                      line-height: 0;
+                    "
+                  ></td>
+                </tr>
+              </table>
+
+              <p
+                style="
+                  margin: 0;
+                  color: #ffffff;
+                  font-size: 15px;
+                  line-height: 1.4;
+                "
+              >
+                Lease • Co-Own • Earn
+              </p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding: 28px 20px 26px;">
+
+              <h2
+                style="
+                  margin: 0 0 14px;
+                  color: #111827;
+                  font-size: 20px;
+                  line-height: 1.4;
+                  font-weight: 700;
+                "
+              >
+                Hello Admin,
+              </h2>
+
+              <p
+                style="
+                  margin: 0 0 20px;
+                  color: #334155;
+                  font-size: 14px;
+                  line-height: 1.65;
+                "
+              >
+                A new quick connect request has been submitted
+                through <strong>Bunndle</strong>. The user's details
+                are provided below.
+              </p>
+
+              <!-- Notification Status -->
               <table
                 role="presentation"
                 width="100%"
                 cellspacing="0"
                 cellpadding="0"
                 border="0"
-                style="
-                  width: 100%;
-                  max-width: 600px;
-                  background-color: #ffffff;
-                  border-radius: 14px;
-                  overflow: hidden;
-                "
+                style="margin-bottom: 20px;"
               >
                 <tr>
                   <td
-                    align="center"
+                    bgcolor="#eef7ff"
                     style="
-                      padding: 24px;
-                      background-color: #14578e;
+                      background-color: #eef7ff;
+                      border: 1px solid #d4e8fa;
+                      border-radius: 12px;
+                      padding: 16px;
                     "
                   >
-                    <h1
-                      style="
-                        margin: 0;
-                        color: #ffffff;
-                        font-size: 25px;
-                      "
-                    >
-                      New Quick Support Request
-                    </h1>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td style="padding: 28px 22px;">
                     <p
                       style="
-                        margin: 0 0 20px;
-                        font-size: 15px;
+                        margin: 0 0 4px;
+                        color: #0f4f91;
+                        font-size: 14px;
+                        line-height: 1.5;
+                        font-weight: 700;
+                      "
+                    >
+                      ✓ New request received
+                    </p>
+
+                    <p
+                      style="
+                        margin: 0;
+                        color: #24577f;
+                        font-size: 13px;
                         line-height: 1.6;
                       "
                     >
-                      A user has submitted a new support request.
+                      Please review the submitted information and
+                      contact the user for further assistance.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- User Details -->
+              <table
+                role="presentation"
+                width="100%"
+                cellspacing="0"
+                cellpadding="0"
+                border="0"
+                bgcolor="#f6f9fd"
+                style="
+                  width: 100%;
+                  background-color: #f6f9fd;
+                  border-left: 4px solid #f58220;
+                  border-radius: 12px;
+                  margin-bottom: 20px;
+                "
+              >
+                <tr>
+                  <td style="padding: 18px 16px;">
+
+                    <p
+                      style="
+                        margin: 0 0 16px;
+                        color: #9a4f0a;
+                        font-size: 15px;
+                        line-height: 1.4;
+                        font-weight: 700;
+                      "
+                    >
+                      Quick Connect Details
                     </p>
 
+                    <!-- Name -->
                     <table
                       role="presentation"
                       width="100%"
                       cellspacing="0"
                       cellpadding="0"
                       border="0"
-                      style="
-                        width: 100%;
-                        background-color: #f5f8fb;
-                        border-left: 4px solid #f58220;
-                        border-radius: 8px;
-                      "
                     >
                       <tr>
-                        <td style="padding: 18px;">
-                          <p style="margin: 0 0 12px;">
-                            <strong>Name:</strong>
-                            ${safeName}
+                        <td
+                          width="32"
+                          valign="top"
+                          style="
+                            width: 32px;
+                            color: #0f4f91;
+                            font-size: 16px;
+                            padding: 3px 8px 12px 0;
+                          "
+                        >
+                          👤
+                        </td>
+
+                        <td style="padding-bottom: 12px;">
+                          <p
+                            style="
+                              margin: 0;
+                              color: #475569;
+                              font-size: 12px;
+                              line-height: 1.4;
+                            "
+                          >
+                            Name
                           </p>
 
-                          <p style="margin: 0;">
-                            <strong>Email:</strong>
+                          <p
+                            style="
+                              margin: 2px 0 0;
+                              color: #111827;
+                              font-size: 14px;
+                              line-height: 1.5;
+                              font-weight: 600;
+                              word-break: break-word;
+                            "
+                          >
+                            ${safeName || "Not provided"}
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
 
+                    <!-- Email -->
+                    <table
+                      role="presentation"
+                      width="100%"
+                      cellspacing="0"
+                      cellpadding="0"
+                      border="0"
+                    >
+                      <tr>
+                        <td
+                          width="32"
+                          valign="top"
+                          style="
+                            width: 32px;
+                            color: #0f4f91;
+                            font-size: 16px;
+                            padding: 3px 8px 0 0;
+                          "
+                        >
+                          ✉
+                        </td>
+
+                        <td>
+                          <p
+                            style="
+                              margin: 0;
+                              color: #475569;
+                              font-size: 12px;
+                              line-height: 1.4;
+                            "
+                          >
+                            Email
+                          </p>
+
+                          <p
+                            style="
+                              margin: 2px 0 0;
+                              color: #111827;
+                              font-size: 14px;
+                              line-height: 1.5;
+                              font-weight: 600;
+                              word-break: break-word;
+                            "
+                          >
                             <a
                               href="mailto:${safeEmail}"
                               style="
-                                color: #14578e;
+                                color: #0f4f91;
                                 text-decoration: none;
                               "
                             >
-                              ${safeEmail}
+                              ${safeEmail || "Not provided"}
                             </a>
                           </p>
                         </td>
                       </tr>
                     </table>
 
-                    <div
-                      style="
-                        margin-top: 20px;
-                        padding: 18px;
-                        border: 1px solid #dbe4ee;
-                        border-radius: 8px;
-                      "
-                    >
-                      <p
-                        style="
-                          margin: 0 0 10px;
-                          font-weight: 600;
-                        "
-                      >
-                        Message
-                      </p>
-
-                      <p
-                        style="
-                          margin: 0;
-                          line-height: 1.65;
-                          white-space: pre-wrap;
-                          word-break: break-word;
-                        "
-                      >
-                        ${safeMessage}
-                      </p>
-                    </div>
-
-                    <p
-                      style="
-                        margin: 20px 0 0;
-                        font-size: 13px;
-                        color: #64748b;
-                      "
-                    >
-                      Reply directly to this email to contact the user.
-                    </p>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td
-                    align="center"
-                    style="
-                      padding: 18px;
-                      background-color: #f5f9fe;
-                      font-size: 12px;
-                      color: #64748b;
-                    "
-                  >
-                    © ${new Date().getFullYear()}
-                    Agent Alliance Private Limited.
-                    All rights reserved.
                   </td>
                 </tr>
               </table>
+
+              <!-- User Message -->
+              <table
+                role="presentation"
+                width="100%"
+                cellspacing="0"
+                cellpadding="0"
+                border="0"
+                style="margin-bottom: 20px;"
+              >
+                <tr>
+                  <td
+                    bgcolor="#ffffff"
+                    style="
+                      background-color: #ffffff;
+                      border: 1px solid #dbe4ee;
+                      border-radius: 12px;
+                      padding: 18px 16px;
+                    "
+                  >
+                    <p
+                      style="
+                        margin: 0 0 10px;
+                        color: #475569;
+                        font-size: 12px;
+                        line-height: 1.4;
+                        font-weight: 600;
+                      "
+                    >
+                      💬 Message
+                    </p>
+
+                    <p
+                      style="
+                        margin: 0;
+                        color: #1f2937;
+                        font-size: 14px;
+                        line-height: 1.65;
+                        white-space: pre-wrap;
+                        word-break: break-word;
+                      "
+                    >
+                      ${safeMessage || "No message provided"}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Action Note -->
+              <table
+                role="presentation"
+                width="100%"
+                cellspacing="0"
+                cellpadding="0"
+                border="0"
+                style="margin-bottom: 20px;"
+              >
+                <tr>
+                  <td
+                    bgcolor="#fff5eb"
+                    style="
+                      background-color: #fff5eb;
+                      border: 1px solid #fed7aa;
+                      border-radius: 12px;
+                      padding: 16px;
+                    "
+                  >
+                    <p
+                      style="
+                        margin: 0;
+                        color: #9a4f0a;
+                        font-size: 13px;
+                        line-height: 1.6;
+                      "
+                    >
+                      Please contact the user as soon as possible
+                      and assist them with their inquiry.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Reply Button -->
+              ${
+                safeEmail
+                  ? `
+              <table
+                role="presentation"
+                cellspacing="0"
+                cellpadding="0"
+                border="0"
+                style="margin: 0 auto;"
+              >
+                <tr>
+                  <td
+                    align="center"
+                    bgcolor="#f58220"
+                    style="
+                      background-color: #f58220;
+                      border-radius: 8px;
+                    "
+                  >
+                    <a
+                      href="mailto:${safeEmail}"
+                      style="
+                        display: inline-block;
+                        padding: 13px 26px;
+                        color: #ffffff;
+                        font-size: 14px;
+                        line-height: 1.4;
+                        font-weight: 700;
+                        text-decoration: none;
+                      "
+                    >
+                      Reply to User
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              `
+                  : ""
+              }
+
             </td>
           </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td
+              align="center"
+              bgcolor="#f5f9fe"
+              style="
+                background-color: #f5f9fe;
+                border-top: 1px solid #e3edf7;
+                padding: 22px 18px;
+              "
+            >
+              <p
+                style="
+                  margin: 0 0 8px;
+                  color: #334155;
+                  font-size: 13px;
+                  line-height: 1.5;
+                "
+              >
+                Bunndle Admin Notification
+              </p>
+
+              <p
+                style="
+                  margin: 0;
+                  color: #64748b;
+                  font-size: 11px;
+                  line-height: 1.5;
+                "
+              >
+                © ${new Date().getFullYear()}
+                Agent Alliance Private Limited.
+                All rights reserved.
+              </p>
+            </td>
+          </tr>
+
         </table>
-      </body>
-    </html>
-  `;
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`;
 };
 
 export default adminQuickConnectTemplate;
