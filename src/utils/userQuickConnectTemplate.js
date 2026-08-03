@@ -189,7 +189,7 @@ const userQuickConnectTemplate = ({
                   line-height:1.4;
                 "
               >
-                Lease • Co-Own • Earn
+                 Rent Beyond Limits
               </p>
             </td>
           </tr>

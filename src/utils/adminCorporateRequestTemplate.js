@@ -89,7 +89,7 @@ const adminCorporateRequestTemplate = ({
     content="width=device-width, initial-scale=1.0"
   />
 
-  <title>New Corporate Leasing Request</title>
+  <title>Corporate Leasing Request</title>
 </head>
 
 <body
@@ -196,7 +196,7 @@ const adminCorporateRequestTemplate = ({
                   font-weight: 700;
                 "
               >
-                New Corporate Leasing Request
+                 Corporate Leasing Request
               </h1>
 
               <table

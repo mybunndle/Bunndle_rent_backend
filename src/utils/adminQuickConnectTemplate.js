@@ -27,7 +27,7 @@ const adminQuickConnectTemplate = ({
     content="width=device-width, initial-scale=1.0"
   />
 
-  <title>New Quick Connect Request</title>
+  <title>Quick Connect Request</title>
 </head>
 
 <body
@@ -136,7 +136,7 @@ const adminQuickConnectTemplate = ({
                   font-weight: 700;
                 "
               >
-                New Quick Connect<br />Request
+                Quick Connect<br />Request
               </h1>
 
               <!-- Orange Divider -->
@@ -190,7 +190,7 @@ const adminQuickConnectTemplate = ({
                   line-height: 1.4;
                 "
               >
-                Lease • Co-Own • Earn
+                Rent Beyond Limits
               </p>
             </td>
           </tr>
@@ -219,8 +219,8 @@ const adminQuickConnectTemplate = ({
                   line-height: 1.65;
                 "
               >
-                A new quick connect request has been submitted
-                through <strong>Bunndle</strong>. The user's details
+                A quick connect request has been submitted
+                through <strong>Bunndle Rent</strong>. The user's details
                 are provided below.
               </p>
 
