@@ -1,19 +1,19 @@
 import nodemailer from "nodemailer";
-import dotenv from "dotenv";
 
 import {
   forgotPasswordTemplate,
 } from "./otp_template.js";
 
-dotenv.config();
+const emailPort =
+  Number(process.env.EMAIL_PORT) || 587;
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
-  port: Number(process.env.EMAIL_PORT) || 587,
+  port: emailPort,
 
-  // Port 587 ke liye false.
-  // Port 465 use karne par true karna hota hai.
-  secure: false,
+  // Port 465 = true
+  // Port 587 = false
+  secure: emailPort === 465,
 
   auth: {
     user: process.env.EMAIL_USER?.trim(),
@@ -52,6 +52,12 @@ export const sendEmail = async ({
       throw error;
     }
 
+    if (!process.env.EMAIL_FROM) {
+      throw new Error(
+        "EMAIL_FROM is missing in environment variables."
+      );
+    }
+
     const info = await transporter.sendMail({
       from: `"Bunndle Rent" <${process.env.EMAIL_FROM}>`,
       to,
@@ -64,7 +70,7 @@ export const sendEmail = async ({
     });
 
     console.log(
-      "✅ EMAIL SENT:",
+      `✅ EMAIL SENT TO ${to}:`,
       info.messageId
     );
 
@@ -74,7 +80,7 @@ export const sendEmail = async ({
     };
   } catch (error) {
     console.error(
-      "❌ EMAIL SEND ERROR:",
+      `❌ EMAIL SEND ERROR TO ${to}:`,
       error.message
     );
 
@@ -87,6 +93,7 @@ export const sendEmail = async ({
     );
 
     emailError.statusCode = 502;
+    emailError.originalError = error;
 
     throw emailError;
   }
@@ -99,10 +106,8 @@ export const sendForgotPasswordOtp = async (
 ) => {
   return sendEmail({
     to: email,
-
     subject:
       "Password Reset OTP - Bunndle Rent",
-
     html: forgotPasswordTemplate(
       name,
       otp

@@ -28,6 +28,7 @@ import {
   appleLoginService,
   logoutService,
   deleteAccountService,
+  createCorporateRequest_Service,
 } from "./auth.service.js";
 
 export async function register(req, res) {
@@ -703,5 +704,61 @@ export const quickConnect = async (
     );
 
     next(error);
+  }
+};
+
+
+export const createCorporateRequest = async (
+  req,
+  res
+) => {
+  try {
+    const result =
+      await createCorporateRequest_Service({
+        companyName: req.body.companyName,
+        contactName: req.body.contactName,
+        designation: req.body.designation,
+        phone: req.body.phone,
+        email: req.body.email,
+        locationCity: req.body.locationCity,
+        locationState: req.body.locationState,
+        numberOfCars: req.body.numberOfCars,
+        seatingCapacity: req.body.seatingCapacity,
+        preferredVehicleType:
+          req.body.preferredVehicleType,
+        message: req.body.message,
+
+        createdBy:
+          req.user?._id ||
+          req.user?.id ||
+          req.user?.userId ||
+          null,
+      });
+
+    return res.status(201).json(result);
+  } catch (error) {
+    console.error(
+      "Create corporate request error:",
+      error
+    );
+
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        success: false,
+        message:
+          Object.values(error.errors)[0]
+            ?.message ||
+          "Validation failed",
+      });
+    }
+
+    return res
+      .status(error.statusCode || 500)
+      .json({
+        success: false,
+        message:
+          error.message ||
+          "Internal server error",
+      });
   }
 };

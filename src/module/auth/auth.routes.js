@@ -14,6 +14,7 @@ import {
   logoutController,
   deleteAccountController,
   quickConnect,
+  createCorporateRequest,
 } from "./auth.controller.js";
 import { authenticate } from "../../middleware/auth.middleware.js";
 
@@ -41,5 +42,7 @@ router.post("/logout", authenticate, logoutController);
 router.delete("/delete_account", authenticate, deleteAccountController);
 
 router.post("/quick_connect", authenticate, quickConnect);
+
+router.post("/corporate_request", authenticate, createCorporateRequest);
 
 export default router;

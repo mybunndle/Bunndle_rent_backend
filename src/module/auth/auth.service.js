@@ -9,12 +9,21 @@ import tokenBlacklistModel from "../../models/tokenBlacklistModel.js";
 import { hashToken } from "../../utils/token.util.js";
 import { generateToken } from "../../utils/generate.token.js";
 import assetModel from "../../models/assetModel.js";
+import corporateRequestModel from "../../models/corporateRequestModel.js";
+
+import adminCorporateRequestTemplate from "../../utils/adminCorporateRequestTemplate.js";
+
+import userCorporateRequestTemplate from "../../utils/userCorporateRequestTemplate.js";
+
+import {
+  sendForgotPasswordOtp,
+  sendEmail,
+} from "../../utils/email.js";
 
 import userModel from "../../models/userModel.js";
 import passwordResetOtpModel from "../../models/passwordResetOtp.model.js";
-import { sendForgotPasswordOtp } from "../../utils/email.js";
+// import { sendForgotPasswordOtp } from "../../utils/email.js";
 import { verifyAppleToken } from "../../utils/apple_Auth.js";
-import { type } from "os";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
@@ -1113,3 +1122,263 @@ export const deleteAccountService = async ({
     deletedUserId: String(user._id),
   };
 };
+
+const corporateEmailRegex =
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const corporatePhoneRegex =
+  /^\+?[0-9]{8,15}$/;
+
+export async function createCorporateRequest_Service({
+  companyName,
+  contactName,
+  designation,
+  phone,
+  email,
+  locationCity,
+  locationState,
+  numberOfCars,
+  seatingCapacity,
+  preferredVehicleType,
+  message,
+  createdBy = null,
+}) {
+  const cleanCompanyName = String(
+    companyName || ""
+  ).trim();
+
+  const cleanContactName = String(
+    contactName || ""
+  ).trim();
+
+  const cleanPhone = String(phone || "")
+    .replace(/[\s-]/g, "")
+    .trim();
+
+  const cleanEmail = String(email || "")
+    .trim()
+    .toLowerCase();
+
+  const cleanCity = String(
+    locationCity || ""
+  ).trim();
+
+  const cleanState = String(
+    locationState || ""
+  ).trim();
+
+  const cleanVehicleType = String(
+    preferredVehicleType || ""
+  ).trim();
+
+  const cleanDesignation = designation
+    ? String(designation).trim()
+    : null;
+
+  const cleanMessage = message
+    ? String(message).trim()
+    : null;
+
+  const carsCount = Number(numberOfCars);
+  const capacity = Number(seatingCapacity);
+
+  if (!cleanCompanyName) {
+    throw createError(
+      400,
+      "Company name is required"
+    );
+  }
+
+  if (!cleanContactName) {
+    throw createError(
+      400,
+      "Point of contact is required"
+    );
+  }
+
+  if (!cleanPhone) {
+    throw createError(
+      400,
+      "Mobile number is required"
+    );
+  }
+
+  if (
+    !corporatePhoneRegex.test(cleanPhone)
+  ) {
+    throw createError(
+      400,
+      "Enter a valid mobile number"
+    );
+  }
+
+  if (!cleanEmail) {
+    throw createError(
+      400,
+      "Email is required"
+    );
+  }
+
+  if (
+    !corporateEmailRegex.test(cleanEmail)
+  ) {
+    throw createError(
+      400,
+      "Enter a valid email address"
+    );
+  }
+
+  if (!cleanCity) {
+    throw createError(
+      400,
+      "City is required"
+    );
+  }
+
+  if (!cleanState) {
+    throw createError(
+      400,
+      "State is required"
+    );
+  }
+
+  if (
+    !Number.isInteger(carsCount) ||
+    carsCount < 1
+  ) {
+    throw createError(
+      400,
+      "Number of cars must be at least 1"
+    );
+  }
+
+  if (
+    !Number.isInteger(capacity) ||
+    capacity < 1
+  ) {
+    throw createError(
+      400,
+      "Seating capacity must be at least 1"
+    );
+  }
+
+  if (!cleanVehicleType) {
+    throw createError(
+      400,
+      "Preferred vehicle type is required"
+    );
+  }
+
+  /*
+   * First save request in MongoDB.
+   */
+  const record =
+    await corporateRequestModel.create({
+      companyName: cleanCompanyName,
+      contactName: cleanContactName,
+      designation: cleanDesignation,
+      phone: cleanPhone,
+      email: cleanEmail,
+      locationCity: cleanCity,
+      locationState: cleanState,
+      numberOfCars: carsCount,
+      seatingCapacity: capacity,
+      preferredVehicleType:
+        cleanVehicleType,
+      message: cleanMessage,
+      createdBy,
+    });
+
+  const requestData = record.toObject();
+
+  /*
+   * Send admin and user emails through
+   * existing Brevo SMTP/Nodemailer utility.
+   */
+  const emailResults =
+    await Promise.allSettled([
+      sendEmail({
+        to:
+          process.env.ADMIN_EMAIL ||
+          "info@bunndle.in",
+
+        subject:
+          `New Corporate Leasing Request - ${record.companyName}`,
+
+        html:
+          adminCorporateRequestTemplate(
+            requestData
+          ),
+
+        replyTo: record.email,
+      }),
+
+      sendEmail({
+        to: record.email,
+
+        subject:
+          "Your Corporate Leasing Request Has Been Received",
+
+        html:
+          userCorporateRequestTemplate(
+            requestData
+          ),
+      }),
+    ]);
+
+  const adminEmailResult =
+    emailResults[0];
+
+  const userEmailResult =
+    emailResults[1];
+
+  const adminEmailSent =
+    adminEmailResult.status === "fulfilled";
+
+  const userEmailSent =
+    userEmailResult.status === "fulfilled";
+
+  if (!adminEmailSent) {
+    console.error(
+      "❌ CORPORATE ADMIN EMAIL ERROR:",
+      adminEmailResult.reason?.message ||
+        adminEmailResult.reason
+    );
+  }
+
+  if (!userEmailSent) {
+    console.error(
+      "❌ CORPORATE USER EMAIL ERROR:",
+      userEmailResult.reason?.message ||
+        userEmailResult.reason
+    );
+  }
+
+  return {
+    success: true,
+
+    message:
+      adminEmailSent && userEmailSent
+        ? "Corporate request submitted successfully. Confirmation email sent."
+        : "Corporate request saved successfully, but one or more emails could not be sent.",
+
+    data: record,
+
+    emailStatus: {
+      adminEmailSent,
+      userEmailSent,
+
+      adminMessageId:
+        adminEmailSent
+          ? adminEmailResult.value
+              .messageId
+          : null,
+
+      userMessageId:
+        userEmailSent
+          ? userEmailResult.value
+              .messageId
+          : null,
+    },
+  };
+}
