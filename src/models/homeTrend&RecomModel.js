@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { string } from "zod";
 
 const homeTrendRecomSchema = new mongoose.Schema(
   {
@@ -32,7 +33,7 @@ const homeTrendRecomSchema = new mongoose.Schema(
     },
 
     price: {
-      type: Number,
+      type: String,
       default: null,
       min: 0,
     },

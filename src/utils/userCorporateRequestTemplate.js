@@ -10,7 +10,7 @@ const escapeHtml = (value = "") => {
 const userCorporateRequestTemplate = ({
   _id,
   companyName,
-  contactName,
+  contactName,   
   locationCity,
   locationState,
   numberOfCars,
