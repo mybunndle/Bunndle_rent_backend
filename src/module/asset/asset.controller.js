@@ -56,7 +56,7 @@ export const deleteAssetController = async (req, res) => {
   try {
     const assetId = req.params.id;
     const userId = req.user?._id;
-    const userId = req.user?._id;
+    
 
     const deletedAsset = await deleteAssetService({
       assetId,
@@ -71,7 +71,7 @@ export const deleteAssetController = async (req, res) => {
   } catch (error) {
     console.error("DELETE ASSET ERROR:", error);
 
-    return res.status(error.statusCode || 500).json({
+    const userId = req.user?._id; return res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || "Unable to delete asset.",
     });
@@ -107,7 +107,7 @@ export const getAssetsController = async (req, res) => {
 export const editAssetController = async (req, res) => {
   try {
     const userId = req.user?._id;
-    const userId = req.user?._id;
+    
   
     const assetId = req.params.id;
 
