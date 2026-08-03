@@ -121,7 +121,7 @@ export const authenticate = async (req, res, next) => {
 
     if (
       !authHeader ||
-      !authHeader.startsWith("Bearer ")
+      !authHeader.startsWith("Bearer")
     ) {
       return res.status(401).json({
         success: false,
@@ -130,6 +130,7 @@ export const authenticate = async (req, res, next) => {
     }
 
     const token = authHeader.slice(7).trim();
+    
 
     if (!token) {
       return res.status(401).json({
@@ -142,6 +143,7 @@ export const authenticate = async (req, res, next) => {
       token,
       process.env.JWT_SECRET
     );
+    console.log("Decoded Token:", decoded); 
 
     const userId = decoded.userId || decoded.id;
 

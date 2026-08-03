@@ -26,7 +26,8 @@ const getLoggedInUserId = (req) => {
 
 export const addAssetController = async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?._id;
+    console.log("User ID:", userId);
 
     const asset = await addAssetService({
       userId,
