@@ -1,5 +1,5 @@
 const escapeHtml = (value = "") => {
-  return String(value)
+  return String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
@@ -18,17 +18,34 @@ const userCorporateRequestTemplate = ({
   preferredVehicleType,
 }) => {
   const safeRequestId = escapeHtml(_id);
-  const safeCompanyName = escapeHtml(companyName);
+
+  const safeCompanyName = escapeHtml(
+    companyName || "Not provided"
+  );
+
   const safeContactName = escapeHtml(
     contactName || "Customer"
   );
-  const safeCity = escapeHtml(locationCity);
-  const safeState = escapeHtml(locationState);
-  const safeNumberOfCars = escapeHtml(numberOfCars);
-  const safeSeatingCapacity =
-    escapeHtml(seatingCapacity);
+
+  const safeCity = escapeHtml(
+    locationCity || "Not provided"
+  );
+
+  const safeState = escapeHtml(
+    locationState || "Not provided"
+  );
+
+  const safeNumberOfCars = escapeHtml(
+    numberOfCars || "Not provided"
+  );
+
+  const safeSeatingCapacity = escapeHtml(
+    seatingCapacity || "Not provided"
+  );
+
   const safeVehicleType = escapeHtml(
-    preferredVehicleType
+    preferredVehicleType ||
+      "Not provided"
   );
 
   return `
@@ -42,10 +59,13 @@ const userCorporateRequestTemplate = ({
           content="width=device-width, initial-scale=1.0"
         />
 
-        <title>Corporate Leasing Request Received</title>
+        <title>
+          Corporate Leasing Request Received
+        </title>
       </head>
 
       <body
+        bgcolor="#f3f7fb"
         style="
           margin: 0;
           padding: 0;
@@ -60,10 +80,11 @@ const userCorporateRequestTemplate = ({
           cellspacing="0"
           cellpadding="0"
           border="0"
+          bgcolor="#f3f7fb"
           style="
             width: 100%;
             background-color: #f3f7fb;
-            padding: 24px 10px;
+            padding: 18px 8px;
           "
         >
           <tr>
@@ -74,40 +95,149 @@ const userCorporateRequestTemplate = ({
                 cellspacing="0"
                 cellpadding="0"
                 border="0"
+                bgcolor="#ffffff"
                 style="
                   width: 100%;
-                  max-width: 600px;
+                  max-width: 560px;
                   background-color: #ffffff;
-                  border-radius: 14px;
+                  border-radius: 16px;
                   overflow: hidden;
+                  box-shadow: 0 8px 24px
+                    rgba(14, 61, 105, 0.1);
                 "
               >
+                <!-- Header -->
                 <tr>
                   <td
                     align="center"
+                    bgcolor="#0f4f91"
                     style="
-                      padding: 24px;
-                      background-color: #14578e;
+                      background-color: #0f4f91;
+                      padding: 26px 18px 24px;
                     "
                   >
+                    <table
+                      role="presentation"
+                      cellspacing="0"
+                      cellpadding="0"
+                      border="0"
+                      style="margin: 0 auto 14px;"
+                    >
+                      <tr>
+                        <td
+                          align="center"
+                          width="104"
+                          height="104"
+                          bgcolor="#ffffff"
+                          style="
+                            width: 104px;
+                            height: 104px;
+                            background-color: #ffffff;
+                            border-radius: 14px;
+                            overflow: hidden;
+                            padding: 0;
+                            line-height: 0;
+                          "
+                        >
+                          <img
+                            src="https://ik.imagekit.io/bunndle/logo/WhatsApp%20Image%202026-07-10%20at%2012.02.32.jpeg"
+                            alt="Bunndle"
+                            width="104"
+                            style="
+                              display: block;
+                              width: 104px;
+                              max-width: 104px;
+                              height: auto;
+                              background-color: #ffffff;
+                              border: 0;
+                              margin: 0 auto;
+                            "
+                          />
+                        </td>
+                      </tr>
+                    </table>
+
                     <h1
                       style="
                         margin: 0;
                         color: #ffffff;
-                        font-size: 25px;
+                        font-family:
+                          Georgia,
+                          'Times New Roman',
+                          serif;
+                        font-size: 27px;
+                        line-height: 1.25;
+                        font-weight: 700;
                       "
                     >
-                      Request Received
+                      Corporate Request Received
                     </h1>
+
+                    <table
+                      role="presentation"
+                      cellspacing="0"
+                      cellpadding="0"
+                      border="0"
+                      style="margin: 12px auto 10px;"
+                    >
+                      <tr>
+                        <td
+                          width="78"
+                          style="
+                            width: 78px;
+                            height: 1px;
+                            background-color: #f58220;
+                            font-size: 0;
+                            line-height: 0;
+                          "
+                        ></td>
+
+                        <td
+                          style="
+                            padding: 0 9px;
+                            color: #f58220;
+                            font-size: 11px;
+                          "
+                        >
+                          ◆
+                        </td>
+
+                        <td
+                          width="78"
+                          style="
+                            width: 78px;
+                            height: 1px;
+                            background-color: #f58220;
+                            font-size: 0;
+                            line-height: 0;
+                          "
+                        ></td>
+                      </tr>
+                    </table>
+
+                    <p
+                      style="
+                        margin: 0;
+                        color: #ffffff;
+                        font-size: 15px;
+                        line-height: 1.4;
+                      "
+                    >
+                      Corporate Vehicle Leasing
+                    </p>
                   </td>
                 </tr>
 
+                <!-- Body -->
                 <tr>
-                  <td style="padding: 28px 22px;">
+                  <td style="padding: 28px 20px 26px;">
                     <h2
                       style="
                         margin: 0 0 14px;
+                        color: #111827;
                         font-size: 20px;
+                        line-height: 1.4;
+                        font-weight: 700;
                       "
                     >
                       Hello ${safeContactName},
@@ -116,6 +246,8 @@ const userCorporateRequestTemplate = ({
                     <p
                       style="
                         margin: 0 0 12px;
+                        color: #334155;
+                        font-size: 14px;
                         line-height: 1.65;
                       "
                     >
@@ -128,126 +260,208 @@ const userCorporateRequestTemplate = ({
                     <p
                       style="
                         margin: 0 0 20px;
+                        color: #334155;
+                        font-size: 14px;
                         line-height: 1.65;
                       "
                     >
-                      Your corporate vehicle leasing request
-                      has been received successfully. Our team
-                      will review your requirement and contact
-                      you shortly.
+                      We have successfully received
+                      the corporate vehicle leasing
+                      request submitted on behalf of
+                      <strong>
+                        ${safeCompanyName}
+                      </strong>.
+                      Our team will review your
+                      requirement and contact you
+                      shortly.
                     </p>
 
+                    <!-- Success status -->
                     <table
                       role="presentation"
                       width="100%"
                       cellspacing="0"
                       cellpadding="0"
                       border="0"
-                      style="
-                        width: 100%;
-                        background-color: #f5f8fb;
-                        border-left: 4px solid #f58220;
-                        border-radius: 8px;
-                      "
+                      style="margin-bottom: 20px;"
                     >
                       <tr>
-                        <td style="padding: 18px;">
-                          <p style="${detailStyle}">
-                            <strong>Request ID:</strong>
-                            ${safeRequestId}
+                        <td
+                          bgcolor="#eef7ff"
+                          style="
+                            background-color: #eef7ff;
+                            border: 1px solid #d4e8fa;
+                            border-radius: 12px;
+                            padding: 16px;
+                          "
+                        >
+                          <p
+                            style="
+                              margin: 0 0 4px;
+                              color: #0f4f91;
+                              font-size: 14px;
+                              line-height: 1.5;
+                              font-weight: 700;
+                            "
+                          >
+                            ✓ Your corporate leasing
+                            request has been submitted
                           </p>
 
-                          <p style="${detailStyle}">
-                            <strong>Company Name:</strong>
-                            ${safeCompanyName}
-                          </p>
-
-                          <p style="${detailStyle}">
-                            <strong>Number of Cars:</strong>
-                            ${safeNumberOfCars}
-                          </p>
-
-                          <p style="${detailStyle}">
-                            <strong>Seating Capacity:</strong>
-                            ${safeSeatingCapacity}
-                          </p>
-
-                          <p style="${detailStyle}">
-                            <strong>
-                              Preferred Vehicle Type:
-                            </strong>
-
-                            ${safeVehicleType}
-                          </p>
-
-                          <p style="margin: 0;">
-                            <strong>Location:</strong>
-                            ${safeCity}, ${safeState}
+                          <p
+                            style="
+                              margin: 0;
+                              color: #24577f;
+                              font-size: 13px;
+                              line-height: 1.6;
+                            "
+                          >
+                            Our corporate leasing team
+                            will get in touch with you
+                            as soon as possible.
                           </p>
                         </td>
                       </tr>
                     </table>
 
-                    <div
+                    <!-- Request details -->
+                    <table
+                      role="presentation"
+                      width="100%"
+                      cellspacing="0"
+                      cellpadding="0"
+                      border="0"
+                      bgcolor="#fff8f1"
                       style="
-                        margin-top: 20px;
-                        padding: 16px;
-                        background-color: #eff6ff;
-                        border-radius: 8px;
-                        color: #374151;
-                        line-height: 1.6;
+                        width: 100%;
+                        background-color: #fff8f1;
+                        border-left: 4px solid #f58220;
+                        border-radius: 12px;
+                        margin-bottom: 20px;
                       "
                     >
-                      Our corporate leasing team will contact
-                      you using the phone number or email
-                      provided in your request.
-                    </div>
+                      <tr>
+                        <td style="padding: 18px 16px;">
+                          <p
+                            style="
+                              margin: 0 0 16px;
+                              color: #9a4f0a;
+                              font-size: 15px;
+                              font-weight: 700;
+                            "
+                          >
+                            Corporate Request Details
+                          </p>
+
+                          ${detailRow(
+                            "🆔",
+                            "Request ID",
+                            safeRequestId
+                          )}
+
+                          ${detailRow(
+                            "🏢",
+                            "Company Name",
+                            safeCompanyName
+                          )}
+
+                          ${detailRow(
+                            "🚘",
+                            "Number of Cars",
+                            safeNumberOfCars
+                          )}
+
+                          ${detailRow(
+                            "👥",
+                            "Seating Capacity",
+                            safeSeatingCapacity
+                          )}
+
+                          ${detailRow(
+                            "🚙",
+                            "Preferred Vehicle Type",
+                            safeVehicleType
+                          )}
+
+                          ${detailRow(
+                            "📍",
+                            "Location",
+                            `${safeCity}, ${safeState}`,
+                            true
+                          )}
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Next step -->
+                    <table
+                      role="presentation"
+                      width="100%"
+                      cellspacing="0"
+                      cellpadding="0"
+                      border="0"
+                      style="margin-bottom: 22px;"
+                    >
+                      <tr>
+                        <td
+                          bgcolor="#fff5eb"
+                          style="
+                            background-color: #fff5eb;
+                            border: 1px solid #fed7aa;
+                            border-radius: 12px;
+                            padding: 16px;
+                          "
+                        >
+                          <p
+                            style="
+                              margin: 0;
+                              color: #9a4f0a;
+                              font-size: 13px;
+                              line-height: 1.6;
+                            "
+                          >
+                            Our team will contact you
+                            using the phone number or
+                            email address provided in
+                            your request. Vehicle
+                            availability, pricing and
+                            leasing terms will be
+                            confirmed during the
+                            follow-up.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
 
                     <p
                       style="
-                        margin: 24px 0 0;
-                        line-height: 1.65;
+                        margin: 0 0 8px;
+                        color: #334155;
+                        font-size: 14px;
+                        line-height: 1.6;
+                      "
+                    >
+                      Thank you for choosing Bunndle.
+                    </p>
+
+                    <p
+                      style="
+                        margin: 0;
+                        color: #334155;
+                        font-size: 14px;
+                        line-height: 1.6;
                       "
                     >
                       Regards,<br />
 
-                      <strong style="color: #14578e;">
+                      <strong style="color: #0f4f91;">
                         Bunndle Corporate Leasing Team
                       </strong>
                     </p>
                   </td>
                 </tr>
 
-                <tr>
-                  <td
-                    align="center"
-                    style="
-                      padding: 18px;
-                      background-color: #f5f9fe;
-                      font-size: 12px;
-                      color: #64748b;
-                    "
-                  >
-                    Need help?
-
-                    <a
-                      href="mailto:info@bunndle.in"
-                      style="
-                        color: #14578e;
-                        text-decoration: none;
-                        font-weight: 600;
-                      "
-                    >
-                      Contact Bunndle Support
-                    </a>
-
-                    <br /><br />
-
-                    © ${new Date().getFullYear()}
-                    Agent Alliance Private Limited.
-                    All rights reserved.
-                  </td>
-                </tr>
+                ${footerTemplate()}
               </table>
             </td>
           </tr>
@@ -257,10 +471,121 @@ const userCorporateRequestTemplate = ({
   `;
 };
 
-const detailStyle = `
-  margin: 0 0 12px;
-  line-height: 1.5;
-  word-break: break-word;
-`;
+const detailRow = (
+  icon,
+  label,
+  value,
+  isLast = false
+) => {
+  return `
+    <table
+      role="presentation"
+      width="100%"
+      cellspacing="0"
+      cellpadding="0"
+      border="0"
+    >
+      <tr>
+        <td
+          width="32"
+          valign="top"
+          style="
+            width: 32px;
+            color: #0f4f91;
+            font-size: 16px;
+            padding:
+              3px 8px
+              ${isLast ? "0" : "12px"}
+              0;
+          "
+        >
+          ${icon}
+        </td>
+
+        <td
+          style="
+            padding-bottom:
+              ${isLast ? "0" : "12px"};
+          "
+        >
+          <p
+            style="
+              margin: 0;
+              color: #475569;
+              font-size: 12px;
+              line-height: 1.4;
+            "
+          >
+            ${label}
+          </p>
+
+          <p
+            style="
+              margin: 2px 0 0;
+              color: #111827;
+              font-size: 14px;
+              line-height: 1.5;
+              font-weight: 600;
+              word-break: break-word;
+            "
+          >
+            ${value || "Not provided"}
+          </p>
+        </td>
+      </tr>
+    </table>
+  `;
+};
+
+const footerTemplate = () => {
+  return `
+    <tr>
+      <td
+        align="center"
+        bgcolor="#f5f9fe"
+        style="
+          background-color: #f5f9fe;
+          border-top: 1px solid #e3edf7;
+          padding: 22px 18px;
+        "
+      >
+        <p
+          style="
+            margin: 0 0 8px;
+            color: #334155;
+            font-size: 13px;
+            line-height: 1.5;
+          "
+        >
+          Need help?
+
+          <a
+            href="mailto:support@bunndle.in"
+            style="
+              color: #0f4f91;
+              text-decoration: none;
+              font-weight: 600;
+            "
+          >
+            Contact Bunndle Support
+          </a>
+        </p>
+
+        <p
+          style="
+            margin: 0;
+            color: #64748b;
+            font-size: 11px;
+            line-height: 1.5;
+          "
+        >
+          © ${new Date().getFullYear()}
+          Agent Alliance Private Limited.
+          All rights reserved.
+        </p>
+      </td>
+    </tr>
+  `;
+};
 
 export default userCorporateRequestTemplate;
