@@ -6,7 +6,7 @@ import {
   getAssetsController,
   editAssetController,
   deleteAssetController,
-  addToWishlist_Controller,
+  toggleWishlist_Controller,
   removeFromWishlist_Controller,
   getWishlist_Controller,
   checkWishlist_Controller,
@@ -32,7 +32,7 @@ router.patch(
 
 router.delete("/delete_asset/:id", authenticate, deleteAssetController);
 
-router.put("/add_to_wishlist/:assetId", authenticate, addToWishlist_Controller);
+router.put("/toggle_wishlist/:assetId", authenticate, toggleWishlist_Controller);
 router.delete(
   "/remove_from_wishlist/:assetId",
   authenticate,

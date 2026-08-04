@@ -39,7 +39,7 @@ export const toggleEnquiry = async (req, res) => {
     const { assetId } = req.params;
 
     // authenticate middleware provides req.user.id
-    const userId = req.user?.id;
+    const userId = req.user?._id;
 
     const result = await toggleEnquiry_Service({
       assetId,

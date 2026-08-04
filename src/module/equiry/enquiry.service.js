@@ -23,6 +23,82 @@ const validateObjectId = (id, fieldName) => {
 /**
  * Add, remove or reactivate an enquiry.
  */
+// export const toggleEnquiry_Service = async ({
+//   assetId,
+//   userId,
+// }) => {
+//   validateObjectId(assetId, "Asset ID");
+//   validateObjectId(userId, "User ID");
+
+//   const assetExists = await AssetModel.exists({
+//     _id: assetId,
+//   });
+
+//   if (!assetExists) {
+//     throw createError(404, "Asset not found");
+//   }
+
+//   const existingEnquiry = await enquiryModel.findOne({
+//     assetId,
+//     userId,
+//   });
+
+//   // Create new enquiry
+//   if (!existingEnquiry) {
+//     const enquiry = await enquiryModel.create({
+//       assetId,
+//       userId,
+//       status: "active",
+//     });
+
+//     const populatedEnquiry = await enquiryModel
+//       .findById(enquiry._id)
+//       .populate("assetId")
+//       .populate("userId", "name email phone");
+
+//     return {
+//       isActive: true,
+//       statusCode: 201,
+//       message: "Enquiry added successfully",
+//       data: populatedEnquiry,
+//     };
+//   }
+
+//   // Remove existing active enquiry
+//   if (existingEnquiry.status === "active") {
+//     existingEnquiry.status = "removed";
+//     await existingEnquiry.save();
+
+//     return {
+//       isActive: false,
+//       statusCode: 200,
+//       message: "Enquiry removed successfully",
+//       data: {
+//         enquiryId: existingEnquiry._id,
+//         assetId: existingEnquiry.assetId,
+//         status: existingEnquiry.status,
+//       },
+//     };
+//   }
+
+//   // Reactivate removed enquiry
+//   existingEnquiry.status = "active";
+//   await existingEnquiry.save();
+
+//   const reactivatedEnquiry = await enquiryModel
+//     .findById(existingEnquiry._id)
+//     .populate("assetId")
+//     .populate("userId", "name email phone");
+
+//   return {
+//     isActive: true,
+//     statusCode: 200,
+//     message: "Enquiry reactivated successfully",
+//     data: reactivatedEnquiry,
+//   };
+// };
+
+
 export const toggleEnquiry_Service = async ({
   assetId,
   userId,
@@ -43,7 +119,7 @@ export const toggleEnquiry_Service = async ({
     userId,
   });
 
-  // Create new enquiry
+  // Create enquiry for the first time
   if (!existingEnquiry) {
     const enquiry = await enquiryModel.create({
       assetId,
@@ -54,7 +130,8 @@ export const toggleEnquiry_Service = async ({
     const populatedEnquiry = await enquiryModel
       .findById(enquiry._id)
       .populate("assetId")
-      .populate("userId", "name email phone");
+      .populate("userId", "name email phone")
+      .lean();
 
     return {
       isActive: true,
@@ -64,39 +141,42 @@ export const toggleEnquiry_Service = async ({
     };
   }
 
-  // Remove existing active enquiry
-  if (existingEnquiry.status === "active") {
-    existingEnquiry.status = "removed";
-    await existingEnquiry.save();
+  // Toggle active/removed
+  const newStatus =
+    existingEnquiry.status === "active"
+      ? "removed"
+      : "active";
 
-    return {
-      isActive: false,
-      statusCode: 200,
-      message: "Enquiry removed successfully",
-      data: {
-        enquiryId: existingEnquiry._id,
-        assetId: existingEnquiry.assetId,
-        status: existingEnquiry.status,
-      },
-    };
-  }
+  const updatedEnquiry =
+    await enquiryModel
+      .findByIdAndUpdate(
+        existingEnquiry._id,
+        {
+          $set: {
+            status: newStatus,
+          },
+        },
+        {
+          returnDocument: "after",
+          runValidators: true,
+        }
+      )
+      .populate("assetId")
+      .populate("userId", "name email phone")
+      .lean();
 
-  // Reactivate removed enquiry
-  existingEnquiry.status = "active";
-  await existingEnquiry.save();
-
-  const reactivatedEnquiry = await enquiryModel
-    .findById(existingEnquiry._id)
-    .populate("assetId")
-    .populate("userId", "name email phone");
+  const isActive = newStatus === "active";
 
   return {
-    isActive: true,
+    isActive,
     statusCode: 200,
-    message: "Enquiry reactivated successfully",
-    data: reactivatedEnquiry,
+    message: isActive
+      ? "Enquiry reactivated successfully"
+      : "Enquiry removed successfully",
+    data: updatedEnquiry,
   };
 };
+
 
 /**
  * Get logged-in user's active enquired assets.

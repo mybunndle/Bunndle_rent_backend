@@ -330,10 +330,6 @@ export const deleteAssetService = async ({ assetId, userId }) => {
   return deletedAssetData;
 };
 
-
-
-
-
 const validateObjectId = (id, fieldName) => {
   if (!id || !mongoose.Types.ObjectId.isValid(id)) {
     throw createError(400, `Invalid ${fieldName}`);
@@ -345,9 +341,9 @@ const validateObjectId = (id, fieldName) => {
  * updateOne + upsert makes this API idempotent:
  * already wishlisted asset will not be added twice.
  */
-export async function addToWishlist_Service(userId, assetId) {
-  validateObjectId(userId, "user ID");
-  validateObjectId(assetId, "asset ID");
+export async function toggleWishlist_Service(userId, assetId) {
+  validateObjectId(userId, "User ID");
+  validateObjectId(assetId, "Asset ID");
 
   const assetExists = await assetModel.exists({
     _id: assetId,
@@ -357,27 +353,35 @@ export async function addToWishlist_Service(userId, assetId) {
     throw createError(404, "Asset not found");
   }
 
-  await wishlistModel.updateOne(
-    {
-      userId,
-      assetId,
-    },
-    {
-      $setOnInsert: {
-        userId,
+  // Remove from wishlist if already present
+  const removedWishlist = await wishlistModel.findOneAndDelete({
+    userId,
+    assetId,
+  });
+
+  if (removedWishlist) {
+    return {
+      success: true,
+      message: "Asset removed from wishlist successfully",
+      data: {
         assetId,
+        isWishlisted: false,
       },
-    },
-    {
-      upsert: true,
-    }
-  );
+    };
+  }
+
+  // Add to wishlist if not present
+  const wishlist = await wishlistModel.create({
+    userId,
+    assetId,
+  });
 
   return {
     success: true,
     message: "Asset added to wishlist successfully",
     data: {
-      assetId,
+      wishlistId: wishlist._id,
+      assetId: wishlist.assetId,
       isWishlisted: true,
     },
   };
@@ -386,10 +390,7 @@ export async function addToWishlist_Service(userId, assetId) {
 /**
  * Remove asset from the logged-in user's wishlist.
  */
-export async function removeFromWishlist_Service(
-  userId,
-  assetId
-) {
+export async function removeFromWishlist_Service(userId, assetId) {
   validateObjectId(userId, "user ID");
   validateObjectId(assetId, "asset ID");
 
@@ -411,22 +412,12 @@ export async function removeFromWishlist_Service(
 /**
  * Get logged-in user's complete wishlist with asset details.
  */
-export async function getWishlist_Service(
-  userId,
-  page = 1,
-  limit = 10
-) {
+export async function getWishlist_Service(userId, page = 1, limit = 10) {
   validateObjectId(userId, "user ID");
 
-  const currentPage = Math.max(
-    Number.parseInt(page, 10) || 1,
-    1
-  );
+  const currentPage = Math.max(Number.parseInt(page, 10) || 1, 1);
 
-  const pageLimit = Math.min(
-    Math.max(Number.parseInt(limit, 10) || 10, 1),
-    50
-  );
+  const pageLimit = Math.min(Math.max(Number.parseInt(limit, 10) || 10, 1), 50);
 
   const skip = (currentPage - 1) * pageLimit;
 
@@ -463,9 +454,7 @@ export async function getWishlist_Service(
       wishlistedAt: item.createdAt,
     }));
 
-  const totalPages = Math.ceil(
-    totalItems / pageLimit
-  );
+  const totalPages = Math.ceil(totalItems / pageLimit);
 
   return {
     success: true,
@@ -478,14 +467,8 @@ export async function getWishlist_Service(
       totalPages,
       hasNextPage: currentPage < totalPages,
       hasPreviousPage: currentPage > 1,
-      nextPage:
-        currentPage < totalPages
-          ? currentPage + 1
-          : null,
-      previousPage:
-        currentPage > 1
-          ? currentPage - 1
-          : null,
+      nextPage: currentPage < totalPages ? currentPage + 1 : null,
+      previousPage: currentPage > 1 ? currentPage - 1 : null,
     },
   };
 }
@@ -493,10 +476,7 @@ export async function getWishlist_Service(
 /**
  * Optional API: check a single asset's wishlist status.
  */
-export async function checkWishlist_Service(
-  userId,
-  assetId
-) {
+export async function checkWishlist_Service(userId, assetId) {
   validateObjectId(userId, "user ID");
   validateObjectId(assetId, "asset ID");
 
@@ -514,8 +494,6 @@ export async function checkWishlist_Service(
     },
   };
 }
-
-
 
 const ALLOWED_CATEGORIES = [
   "4-Wheeler",
@@ -544,9 +522,8 @@ const getMatchingValue = (receivedValue, allowedValues) => {
   const normalizedValue = receivedValue.trim().toLowerCase();
 
   return (
-    allowedValues.find(
-      (value) => value.toLowerCase() === normalizedValue
-    ) || null
+    allowedValues.find((value) => value.toLowerCase() === normalizedValue) ||
+    null
   );
 };
 
@@ -726,17 +703,14 @@ export const getAssetsWith_wishlist_Service = async ({
    * When category is not passed, all assets are returned.
    */
   if (category) {
-    validCategory = getMatchingValue(
-      category,
-      ALLOWED_CATEGORIES
-    );
+    validCategory = getMatchingValue(category, ALLOWED_CATEGORIES);
 
     if (!validCategory) {
       throw createError(
         400,
         `Invalid category. Allowed categories are: ${ALLOWED_CATEGORIES.join(
-          ", "
-        )}`
+          ", ",
+        )}`,
       );
     }
 
@@ -749,38 +723,32 @@ export const getAssetsWith_wishlist_Service = async ({
   if (subCategory && !validCategory) {
     throw createError(
       400,
-      "Category is required when subcategory is provided."
+      "Category is required when subcategory is provided.",
     );
   }
 
   /*
    * Subcategory is only available for Heavy-Machinery.
    */
-  if (
-    subCategory &&
-    validCategory !== "Heavy-Machinery"
-  ) {
+  if (subCategory && validCategory !== "Heavy-Machinery") {
     throw createError(
       400,
-      "Subcategory is only available for Heavy-Machinery."
+      "Subcategory is only available for Heavy-Machinery.",
     );
   }
 
-  if (
-    validCategory === "Heavy-Machinery" &&
-    subCategory
-  ) {
+  if (validCategory === "Heavy-Machinery" && subCategory) {
     validSubCategory = getMatchingValue(
       subCategory,
-      HEAVY_MACHINERY_SUBCATEGORIES
+      HEAVY_MACHINERY_SUBCATEGORIES,
     );
 
     if (!validSubCategory) {
       throw createError(
         400,
         `Invalid subcategory. Allowed subcategories are: ${HEAVY_MACHINERY_SUBCATEGORIES.join(
-          ", "
-        )}`
+          ", ",
+        )}`,
       );
     }
 
@@ -790,10 +758,7 @@ export const getAssetsWith_wishlist_Service = async ({
   /*
    * Fetch all matching assets without pagination.
    */
-  const assets = await assetModel
-    .find(filter)
-    .sort({ createdAt: -1 })
-    .lean();
+  const assets = await assetModel.find(filter).sort({ createdAt: -1 }).lean();
 
   const assetIds = assets.map((asset) => asset._id);
 
@@ -815,17 +780,13 @@ export const getAssetsWith_wishlist_Service = async ({
       .lean();
 
     wishlistedAssetIds = new Set(
-      wishlistItems.map((item) =>
-        item.assetId.toString()
-      )
+      wishlistItems.map((item) => item.assetId.toString()),
     );
   }
 
   const assetsWithWishlist = assets.map((asset) => ({
     ...asset,
-    isWishlisted: wishlistedAssetIds.has(
-      asset._id.toString()
-    ),
+    isWishlisted: wishlistedAssetIds.has(asset._id.toString()),
   }));
 
   return {
