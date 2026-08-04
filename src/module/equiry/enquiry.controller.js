@@ -100,7 +100,7 @@ export const getMyEnquiryAssetIds = async (
   res
 ) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?._id;
 
     const result =
       await getMyEnquiryAssetIds_Service(userId);
@@ -129,7 +129,7 @@ export const getMyEnquiryAssetIds = async (
 export const getAllEnquiries = async (req, res) => {
   try {
     // Admin check using authenticate middleware role
-    console.log(req.user);
+  
     if (req.user?.type !== "ADMIN") {
       return res.status(403).json({
         success: false,
