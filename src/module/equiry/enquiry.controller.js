@@ -69,7 +69,7 @@ export const getMyEnquiredAssets = async (
   res
 ) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?._id;
 
     const result =
       await getMyEnquiredAssets_Service(userId);
