@@ -404,7 +404,7 @@ export const logoutController = async (
   res
 ) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?._id;
 
     const result = await logoutService({
       userId,
@@ -432,7 +432,7 @@ export const deleteAccountController = async (
   res
 ) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?._id;
 
     const {
       currentPassword,

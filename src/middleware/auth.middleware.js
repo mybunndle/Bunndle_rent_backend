@@ -143,7 +143,7 @@ export const authenticate = async (req, res, next) => {
       token,
       process.env.JWT_SECRET
     );
-    console.log("Decoded Token:", decoded); 
+    // console.log("Decoded Token:", decoded); 
 
     const userId = decoded.userId || decoded.id;
 
