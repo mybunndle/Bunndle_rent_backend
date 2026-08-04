@@ -412,39 +412,22 @@ export async function removeFromWishlist_Service(userId, assetId) {
 /**
  * Get logged-in user's complete wishlist with asset details.
  */
-export async function getWishlist_Service(userId, page = 1, limit = 10) {
-  validateObjectId(userId, "user ID");
+export async function getWishlist_Service(userId) {
+  validateObjectId(userId, "User ID");
 
-  const currentPage = Math.max(Number.parseInt(page, 10) || 1, 1);
+  const wishlistItems = await wishlistModel
+    .find({
+      userId,
+    })
+    .populate({
+      path: "assetId",
+    })
+    .sort({
+      createdAt: -1,
+    })
+    .lean();
 
-  const pageLimit = Math.min(Math.max(Number.parseInt(limit, 10) || 10, 1), 50);
-
-  const skip = (currentPage - 1) * pageLimit;
-
-  const filter = {
-    userId,
-  };
-
-  const [wishlistItems, totalItems] = await Promise.all([
-    wishlistModel
-      .find(filter)
-      .populate({
-        path: "assetId",
-      })
-      .sort({
-        createdAt: -1,
-      })
-      .skip(skip)
-      .limit(pageLimit)
-      .lean(),
-
-    wishlistModel.countDocuments(filter),
-  ]);
-
-  /*
-   * assetId null ho sakta hai agar asset delete ho gaya ho
-   * aur related wishlist record cleanup nahi hua.
-   */
+  // Remove wishlist records whose assets have been deleted
   const assets = wishlistItems
     .filter((item) => item.assetId)
     .map((item) => ({
@@ -454,24 +437,15 @@ export async function getWishlist_Service(userId, page = 1, limit = 10) {
       wishlistedAt: item.createdAt,
     }));
 
-  const totalPages = Math.ceil(totalItems / pageLimit);
-
   return {
     success: true,
     message: "Wishlist fetched successfully",
     data: assets,
-    pagination: {
-      currentPage,
-      itemsPerPage: pageLimit,
-      totalItems,
-      totalPages,
-      hasNextPage: currentPage < totalPages,
-      hasPreviousPage: currentPage > 1,
-      nextPage: currentPage < totalPages ? currentPage + 1 : null,
-      previousPage: currentPage > 1 ? currentPage - 1 : null,
-    },
+    totalItems: assets.length,
   };
 }
+
+
 
 /**
  * Optional API: check a single asset's wishlist status.

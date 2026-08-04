@@ -163,9 +163,7 @@ export async function getWishlist_Controller(req, res) {
   try {
     const userId = getLoggedInUserId(req);
 
-    const { page = 1, limit = 10 } = req.query;
-
-    const result = await getWishlist_Service(userId, page, limit);
+    const result = await getWishlist_Service(userId);
 
     return res.status(200).json(result);
   } catch (error) {
