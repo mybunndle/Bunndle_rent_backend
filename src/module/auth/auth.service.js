@@ -11,7 +11,7 @@ import { generateToken } from "../../utils/generate.token.js";
 import assetModel from "../../models/assetModel.js";
 import corporateRequestModel from "../../models/corporateRequestModel.js";
 
-import {sendOtpSms} from "./sms_service.js"
+import { sendOtpSms } from "./sms_service.js";
 import otpModel from "../../models/otpModel.js";
 import userModel from "../../models/userModel.js";
 
@@ -19,11 +19,7 @@ import adminCorporateRequestTemplate from "../../utils/adminCorporateRequestTemp
 
 import userCorporateRequestTemplate from "../../utils/userCorporateRequestTemplate.js";
 
-import {
-  sendForgotPasswordOtp,
-  sendEmail,
-} from "../../utils/email.js";
-
+import { sendForgotPasswordOtp, sendEmail } from "../../utils/email.js";
 
 import passwordResetOtpModel from "../../models/passwordResetOtp.model.js";
 // import { sendForgotPasswordOtp } from "../../utils/email.js";
@@ -58,7 +54,7 @@ const normalizePhone = (phoneValue) => {
 
   if (!/^[6-9]\d{9}$/.test(phone)) {
     const error = new Error(
-      "Please enter a valid 10-digit Indian mobile number"
+      "Please enter a valid 10-digit Indian mobile number",
     );
     error.statusCode = 400;
     throw error;
@@ -157,50 +153,116 @@ export async function registerUser_Service({ name, email, phone, password }) {
    LOGIN USER
 ========================================================= */
 
-export async function loginUser_Service({ email, password }) {
-  const cleanEmail = normalizeEmail(email);
-  const cleanPassword = String(password || "");
+// export async function loginUser_Service({ email, password }) {
+//   const cleanEmail = normalizeEmail(email);
+//   const cleanPassword = String(password || "");
 
-  if (!cleanEmail || !cleanPassword) {
-    throw createError(400, "Email and password are required");
+//   if (!cleanEmail || !cleanPassword) {
+//     throw createError(400, "Email and password are required");
+//   }
+
+//   const user = await userModel
+//     .findOne({
+//       email: cleanEmail,
+//     })
+//     .select("+password");
+
+//   if (!user) {
+//     throw createError(401, "Invalid email or password");
+//   }
+
+//   if (user.isBlocked) {
+//     throw createError(403, "Your account has been blocked");
+//   }
+
+//   const isPasswordValid = await bcrypt.compare(cleanPassword, user.password);
+
+//   if (!isPasswordValid) {
+//     throw createError(401, "Invalid email or password");
+//   }
+
+//   const token = generateToken(user);
+
+//   return {
+//     success: true,
+//     message: "Login successful",
+//     token,
+//     user: {
+//       id: user._id,
+//       name: user.name,
+//       email: user.email,
+//       phone: user.phone,
+//       role: user.role,
+//       type: user.type
+//     },
+//   };
+// }
+
+export const loginUser_Service = async ({ email, password }) => {
+  const normalizedEmail = String(email || "")
+    .trim()
+    .toLowerCase();
+
+  const enteredPassword = String(password || "");
+
+  if (!normalizedEmail) {
+    throw createError(400, "Email is required");
   }
 
+  if (!enteredPassword) {
+    throw createError(400, "Password is required");
+  }
+
+  // +password required if password has select: false in schema
   const user = await userModel
     .findOne({
-      email: cleanEmail,
+      email: normalizedEmail,
     })
     .select("+password");
 
   if (!user) {
-    throw createError(401, "Invalid email or password");
+    throw createError(404, "No account found with this email address");
   }
 
   if (user.isBlocked) {
-    throw createError(403, "Your account has been blocked");
+    throw createError(
+      403,
+      "Your account has been blocked. Please contact support",
+    );
   }
 
-  const isPasswordValid = await bcrypt.compare(cleanPassword, user.password);
+  // bcrypt.compare se pehle password existence check
+  if (!user.password) {
+    throw createError(
+      400,
+      "Your password is not set. Please set your password and log in again",
+    );
+  }
 
-  if (!isPasswordValid) {
+  const isPasswordCorrect = await bcrypt.compare(
+    enteredPassword,
+    user.password,
+  );
+
+  if (!isPasswordCorrect) {
     throw createError(401, "Invalid email or password");
   }
 
-  const token = generateToken(user);
+  const token = generateToken(user._id);
 
   return {
-    success: true,
-    message: "Login successful",
     token,
     user: {
       id: user._id,
       name: user.name,
       email: user.email,
       phone: user.phone,
-      role: user.role,
-      type: user.type
+      type: user.type,
+      profileImage: user.profileImage,
+      kycStatus: user.kycStatus,
     },
   };
-}
+};
 
 /* =========================================================
    GET USER PROFILE
@@ -1142,11 +1204,9 @@ export const deleteAccountService = async ({
   };
 };
 
-const corporateEmailRegex =
-  /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const corporateEmailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const corporatePhoneRegex =
-  /^\+?[0-9]{8,15}$/;
+const corporatePhoneRegex = /^\+?[0-9]{8,15}$/;
 
 export async function createCorporateRequest_Service({
   companyName,
@@ -1162,13 +1222,9 @@ export async function createCorporateRequest_Service({
   message,
   createdBy = null,
 }) {
-  const cleanCompanyName = String(
-    companyName || ""
-  ).trim();
+  const cleanCompanyName = String(companyName || "").trim();
 
-  const cleanContactName = String(
-    contactName || ""
-  ).trim();
+  const cleanContactName = String(contactName || "").trim();
 
   const cleanPhone = String(phone || "")
     .replace(/[\s-]/g, "")
@@ -1178,135 +1234,80 @@ export async function createCorporateRequest_Service({
     .trim()
     .toLowerCase();
 
-  const cleanCity = String(
-    locationCity || ""
-  ).trim();
+  const cleanCity = String(locationCity || "").trim();
 
-  const cleanState = String(
-    locationState || ""
-  ).trim();
+  const cleanState = String(locationState || "").trim();
 
-  const cleanVehicleType = String(
-    preferredVehicleType || ""
-  ).trim();
+  const cleanVehicleType = String(preferredVehicleType || "").trim();
 
-  const cleanDesignation = designation
-    ? String(designation).trim()
-    : null;
+  const cleanDesignation = designation ? String(designation).trim() : null;
 
-  const cleanMessage = message
-    ? String(message).trim()
-    : null;
+  const cleanMessage = message ? String(message).trim() : null;
 
   const carsCount = Number(numberOfCars);
   const capacity = Number(seatingCapacity);
 
   if (!cleanCompanyName) {
-    throw createError(
-      400,
-      "Company name is required"
-    );
+    throw createError(400, "Company name is required");
   }
 
   if (!cleanContactName) {
-    throw createError(
-      400,
-      "Point of contact is required"
-    );
+    throw createError(400, "Point of contact is required");
   }
 
   if (!cleanPhone) {
-    throw createError(
-      400,
-      "Mobile number is required"
-    );
+    throw createError(400, "Mobile number is required");
   }
 
-  if (
-    !corporatePhoneRegex.test(cleanPhone)
-  ) {
-    throw createError(
-      400,
-      "Enter a valid mobile number"
-    );
+  if (!corporatePhoneRegex.test(cleanPhone)) {
+    throw createError(400, "Enter a valid mobile number");
   }
 
   if (!cleanEmail) {
-    throw createError(
-      400,
-      "Email is required"
-    );
+    throw createError(400, "Email is required");
   }
 
-  if (
-    !corporateEmailRegex.test(cleanEmail)
-  ) {
-    throw createError(
-      400,
-      "Enter a valid email address"
-    );
+  if (!corporateEmailRegex.test(cleanEmail)) {
+    throw createError(400, "Enter a valid email address");
   }
 
   if (!cleanCity) {
-    throw createError(
-      400,
-      "City is required"
-    );
+    throw createError(400, "City is required");
   }
 
   if (!cleanState) {
-    throw createError(
-      400,
-      "State is required"
-    );
+    throw createError(400, "State is required");
   }
 
-  if (
-    !Number.isInteger(carsCount) ||
-    carsCount < 1
-  ) {
-    throw createError(
-      400,
-      "Number of cars must be at least 1"
-    );
+  if (!Number.isInteger(carsCount) || carsCount < 1) {
+    throw createError(400, "Number of cars must be at least 1");
   }
 
-  if (
-    !Number.isInteger(capacity) ||
-    capacity < 1
-  ) {
-    throw createError(
-      400,
-      "Seating capacity must be at least 1"
-    );
+  if (!Number.isInteger(capacity) || capacity < 1) {
+    throw createError(400, "Seating capacity must be at least 1");
   }
 
   if (!cleanVehicleType) {
-    throw createError(
-      400,
-      "Preferred vehicle type is required"
-    );
+    throw createError(400, "Preferred vehicle type is required");
   }
 
   /*
    * First save request in MongoDB.
    */
-  const record =
-    await corporateRequestModel.create({
-      companyName: cleanCompanyName,
-      contactName: cleanContactName,
-      designation: cleanDesignation,
-      phone: cleanPhone,
-      email: cleanEmail,
-      locationCity: cleanCity,
-      locationState: cleanState,
-      numberOfCars: carsCount,
-      seatingCapacity: capacity,
-      preferredVehicleType:
-        cleanVehicleType,
-      message: cleanMessage,
-      createdBy,
-    });
+  const record = await corporateRequestModel.create({
+    companyName: cleanCompanyName,
+    contactName: cleanContactName,
+    designation: cleanDesignation,
+    phone: cleanPhone,
+    email: cleanEmail,
+    locationCity: cleanCity,
+    locationState: cleanState,
+    numberOfCars: carsCount,
+    seatingCapacity: capacity,
+    preferredVehicleType: cleanVehicleType,
+    message: cleanMessage,
+    createdBy,
+  });
 
   const requestData = record.toObject();
 
@@ -1314,62 +1315,45 @@ export async function createCorporateRequest_Service({
    * Send admin and user emails through
    * existing Brevo SMTP/Nodemailer utility.
    */
-  const emailResults =
-    await Promise.allSettled([
-      sendEmail({
-        to:
-          process.env.ADMIN_EMAIL ||
-          "info@bunndle.in",
+  const emailResults = await Promise.allSettled([
+    sendEmail({
+      to: process.env.ADMIN_EMAIL || "info@bunndle.in",
 
-        subject:
-          `New Corporate Leasing Request - ${record.companyName}`,
+      subject: `New Corporate Leasing Request - ${record.companyName}`,
 
-        html:
-          adminCorporateRequestTemplate(
-            requestData
-          ),
+      html: adminCorporateRequestTemplate(requestData),
 
-        replyTo: record.email,
-      }),
+      replyTo: record.email,
+    }),
 
-      sendEmail({
-        to: record.email,
+    sendEmail({
+      to: record.email,
 
-        subject:
-          "Your Corporate Leasing Request Has Been Received",
+      subject: "Your Corporate Leasing Request Has Been Received",
 
-        html:
-          userCorporateRequestTemplate(
-            requestData
-          ),
-      }),
-    ]);
+      html: userCorporateRequestTemplate(requestData),
+    }),
+  ]);
 
-  const adminEmailResult =
-    emailResults[0];
+  const adminEmailResult = emailResults[0];
 
-  const userEmailResult =
-    emailResults[1];
+  const userEmailResult = emailResults[1];
 
-  const adminEmailSent =
-    adminEmailResult.status === "fulfilled";
+  const adminEmailSent = adminEmailResult.status === "fulfilled";
 
-  const userEmailSent =
-    userEmailResult.status === "fulfilled";
+  const userEmailSent = userEmailResult.status === "fulfilled";
 
   if (!adminEmailSent) {
     console.error(
       "❌ CORPORATE ADMIN EMAIL ERROR:",
-      adminEmailResult.reason?.message ||
-        adminEmailResult.reason
+      adminEmailResult.reason?.message || adminEmailResult.reason,
     );
   }
 
   if (!userEmailSent) {
     console.error(
       "❌ CORPORATE USER EMAIL ERROR:",
-      userEmailResult.reason?.message ||
-        userEmailResult.reason
+      userEmailResult.reason?.message || userEmailResult.reason,
     );
   }
 
@@ -1387,58 +1371,33 @@ export async function createCorporateRequest_Service({
       adminEmailSent,
       userEmailSent,
 
-      adminMessageId:
-        adminEmailSent
-          ? adminEmailResult.value
-              .messageId
-          : null,
+      adminMessageId: adminEmailSent ? adminEmailResult.value.messageId : null,
 
-      userMessageId:
-        userEmailSent
-          ? userEmailResult.value
-              .messageId
-          : null,
+      userMessageId: userEmailSent ? userEmailResult.value.messageId : null,
     },
   };
 }
 
-
-
-
-
 const findUserByPhone = async (phone) => {
   return userModel.findOne({
     phone: {
-      $in: [
-        phone,
-        `91${phone}`,
-        `+91${phone}`,
-      ],
+      $in: [phone, `91${phone}`, `+91${phone}`],
     },
   });
 };
 
-export const sendLoginOtpService = async (
-  phoneValue
-) => {
+export const sendLoginOtpService = async (phoneValue) => {
   const cleanPhone = normalizePhone(phoneValue);
 
   const user = await findUserByPhone(cleanPhone);
 
   if (!user) {
-    throw createError(
-      404,
-      "No account found with this phone number"
-    );
+    throw createError(404, "No account found with this phone number");
   }
 
-  const otp = Math.floor(
-    100000 + Math.random() * 900000
-  ).toString();
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-  const otpExpiresAt = new Date(
-    Date.now() + 5 * 60 * 1000
-  );
+  const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
   // Purani login OTP remove karo
   await otpModel.deleteMany({
@@ -1456,8 +1415,7 @@ export const sendLoginOtpService = async (
     isVerified: false,
   });
 
-  const isRealSmsEnabled =
-    process.env.USE_REAL_SMS === "true";
+  const isRealSmsEnabled = process.env.USE_REAL_SMS === "true";
 
   try {
     if (isRealSmsEnabled) {
@@ -1466,9 +1424,7 @@ export const sendLoginOtpService = async (
         otp,
       });
     } else {
-      console.log(
-        `Development login OTP for ${cleanPhone}: ${otp}`
-      );
+      console.log(`Development login OTP for ${cleanPhone}: ${otp}`);
     }
   } catch (error) {
     // SMS fail ho to useless OTP record delete karo
@@ -1490,10 +1446,7 @@ export const sendLoginOtpService = async (
   };
 };
 
-export const verifyLoginOtpService = async ({
-  phone,
-  otp,
-}) => {
+export const verifyLoginOtpService = async ({ phone, otp }) => {
   const cleanPhone = normalizePhone(phone);
   const cleanOtp = String(otp ?? "").trim();
 
@@ -1502,10 +1455,7 @@ export const verifyLoginOtpService = async ({
   }
 
   if (!/^\d{6}$/.test(cleanOtp)) {
-    throw createError(
-      400,
-      "Please enter a valid 6-digit OTP"
-    );
+    throw createError(400, "Please enter a valid 6-digit OTP");
   }
 
   const otpRecord = await otpModel
@@ -1518,46 +1468,31 @@ export const verifyLoginOtpService = async ({
     });
 
   if (!otpRecord) {
-    throw createError(
-      400,
-      "OTP not found. Please request a new OTP"
-    );
+    throw createError(400, "OTP not found. Please request a new OTP");
   }
 
-  if (
-    new Date(otpRecord.expiresAt).getTime() <=
-    Date.now()
-  ) {
+  if (new Date(otpRecord.expiresAt).getTime() <= Date.now()) {
     await otpModel.deleteOne({
       _id: otpRecord._id,
     });
 
-    throw createError(
-      400,
-      "OTP has expired. Please request a new OTP"
-    );
+    throw createError(400, "OTP has expired. Please request a new OTP");
   }
 
   if (String(otpRecord.otp) !== cleanOtp) {
-    throw createError(
-      400,
-      "Invalid OTP. Please try again"
-    );
+    throw createError(400, "Invalid OTP. Please try again");
   }
 
   const user = await findUserByPhone(cleanPhone);
 
   if (!user) {
-    throw createError(
-      404,
-      "No account found with this phone number"
-    );
+    throw createError(404, "No account found with this phone number");
   }
 
   if (user.isBlocked) {
     throw createError(
       403,
-      "Your account has been blocked. Please contact support"
+      "Your account has been blocked. Please contact support",
     );
   }
 

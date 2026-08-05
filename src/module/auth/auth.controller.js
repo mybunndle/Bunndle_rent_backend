@@ -86,23 +86,51 @@ export async function register(req, res) {
   }
 }
 
-export async function login(req, res) {
-  try {
-    const parsed = loginSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({
-        message: "Validation failed",
-        errors: parsed.error.flatten().fieldErrors,
-      });
-    }
+// export async function login(req, res) {
+//   try {
+//     const parsed = loginSchema.safeParse(req.body);
+//     if (!parsed.success) {
+//       return res.status(400).json({
+//         message: "Validation failed",
+//         errors: parsed.error.flatten().fieldErrors,
+//       });
+//     }
  
-    const result = await loginUser_Service(parsed.data);
+//     const result = await loginUser_Service(parsed.data);
    
-    return res.status(200).json(result);
-  } catch (err) {
-    return res.status(err.statusCode || 500).json({ message: err.message });
+//     return res.status(200).json(result);
+//   } catch (err) {
+//     return res.status(err.statusCode || 500).json({ message: err.message });
+//   }
+// }
+
+
+
+export const login = async (req, res) => {
+  try {
+    const result = await loginUser_Service({
+      email: req.body?.email,
+      password: req.body?.password,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Login successful",
+      token: result.token,
+      data: result.user,
+    });
+  } catch (error) {
+   
+
+    return res
+      .status(error.statusCode || 500)
+      .json({
+        success: false,
+        message:
+          error.message || "Unable to login",
+      });
   }
-}
+};
 export const getCurrentUser = async (
   req,
   res,
