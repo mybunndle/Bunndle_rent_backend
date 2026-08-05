@@ -100,6 +100,7 @@ export const getRecommendedAssetsController = async (req, res) => {
 export const deleteTrendingRecommendedController = async (req, res) => {
   try {
     const { assetId } = req.params;
+    console.log("assetId to delete:", assetId);
     const result = await deleteTrendingRecommendedService(assetId);
     return res
       .status(200)
@@ -165,8 +166,8 @@ export const getLimitedTimeOffersController = async (req, res) => {
 
 export const deleteLimitedTimeOfferController = async (req, res) => {
   try {
-    const { offerId } = req.params;
-    const result = await deleteLimitedTimeOfferService(offerId);
+    const { assetId } = req.params;
+    const result = await deleteLimitedTimeOfferService(assetId);
     return res.status(200).json({
       success: true,
       message: result.message,
@@ -225,8 +226,8 @@ export const getHomeDealsController = async (req, res) => {
 
 export const deleteHomeDealController = async (req, res) => {
   try {
-    const { dealId } = req.params;
-    const result = await deleteHomeDealService(dealId);
+    const { assetId } = req.params;
+    const result = await deleteHomeDealService(assetId);
     return res.status(200).json({
       success: true,
       message: result.message,

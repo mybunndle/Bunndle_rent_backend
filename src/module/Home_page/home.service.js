@@ -51,7 +51,7 @@ export const addHomeAssetService = async ({
 
   const price =
     body.price !== undefined && body.price !== null && body.price !== ""
-      ? Number(body.price)
+      ? String(body.price).trim()
       : null;
 
   const rank =
@@ -147,6 +147,7 @@ export const deleteTrendingRecommendedService = async (
 
   const asset =
     await homeTrendRecomModel.findById(assetId);
+    console.log("Asset to delete:", assetId);
 
   if (!asset) {
     throw createError(
@@ -306,16 +307,16 @@ export const getLimitedTimeOffersService = async () => {
 };
 
 export const deleteLimitedTimeOfferService = async (
-  offerId,
+  assetId,
 ) => {
   validateObjectId(
-    offerId,
+    assetId,
     "Limited-time offer ID",
   );
 
   const limitedTimeOffer =
     await limitedTimeOfferModel.findById(
-      offerId,
+      assetId,
     );
 
   if (!limitedTimeOffer) {
@@ -412,12 +413,12 @@ export const getHomeDealsService = async () => {
 };
 
 export const deleteHomeDealService = async (
-  dealId,
+  assetId,
 ) => {
-  validateObjectId(dealId, "Home deal ID");
+  validateObjectId(assetId, "Home deal ID");
 
   const homeDeal =
-    await homeDealsModel.findById(dealId);
+    await homeDealsModel.findById(assetId);
 
   if (!homeDeal) {
     throw createError(

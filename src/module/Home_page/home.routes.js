@@ -51,7 +51,7 @@ router.post(
 
 router.get("/get_limitedtimeoffer", getLimitedTimeOffersController);
 
-router.delete( "/delete_limitedtimeoffer/:offerId", 
+router.delete( "/delete_limitedtimeoffer/:assetId", 
   authenticate, 
   deleteLimitedTimeOfferController, 
 );
@@ -65,7 +65,7 @@ router.post(
 
 router.get("/get_home_deals", getHomeDealsController);
 
-router.delete( "/delete_home_deal/:dealId", 
+router.delete( "/delete_home_deal/:assetId", 
   authenticate, 
   deleteHomeDealController, 
 );
