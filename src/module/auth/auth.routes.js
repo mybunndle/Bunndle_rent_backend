@@ -15,6 +15,8 @@ import {
   deleteAccountController,
   quickConnect,
   createCorporateRequest,
+  sendLoginOtp,
+  verifyLoginOtp,
 } from "./auth.controller.js";
 import { authenticate } from "../../middleware/auth.middleware.js";
 
@@ -36,6 +38,9 @@ router.post("/reset_password", resetPassword);
 
 router.post("/google/android", googleAuthController);
 router.post("/apple_login", appleLogin);
+
+router.post("/send-mobile-otp", sendLoginOtp);
+router.post("/verify-mobile-otp", verifyLoginOtp);
 
 router.post("/logout", authenticate, logoutController);
 

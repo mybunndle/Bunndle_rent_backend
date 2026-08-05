@@ -11,6 +11,10 @@ import { generateToken } from "../../utils/generate.token.js";
 import assetModel from "../../models/assetModel.js";
 import corporateRequestModel from "../../models/corporateRequestModel.js";
 
+import {sendOtpSms} from "./sms_service.js"
+import otpModel from "../../models/otpModel.js";
+import userModel from "../../models/userModel.js";
+
 import adminCorporateRequestTemplate from "../../utils/adminCorporateRequestTemplate.js";
 
 import userCorporateRequestTemplate from "../../utils/userCorporateRequestTemplate.js";
@@ -20,7 +24,7 @@ import {
   sendEmail,
 } from "../../utils/email.js";
 
-import userModel from "../../models/userModel.js";
+
 import passwordResetOtpModel from "../../models/passwordResetOtp.model.js";
 // import { sendForgotPasswordOtp } from "../../utils/email.js";
 import { verifyAppleToken } from "../../utils/apple_Auth.js";
@@ -44,8 +48,23 @@ const normalizeEmail = (email) => {
     .toLowerCase();
 };
 
-const normalizePhone = (phone) => {
-  return String(phone || "").replace(/\D/g, "");
+const normalizePhone = (phoneValue) => {
+  let phone = String(phoneValue ?? "").replace(/\D/g, "");
+
+  // 91 country code remove karo
+  if (/^91[6-9]\d{9}$/.test(phone)) {
+    phone = phone.slice(2);
+  }
+
+  if (!/^[6-9]\d{9}$/.test(phone)) {
+    const error = new Error(
+      "Please enter a valid 10-digit Indian mobile number"
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return phone;
 };
 
 /* =========================================================
@@ -1382,3 +1401,176 @@ export async function createCorporateRequest_Service({
     },
   };
 }
+
+
+
+
+
+const findUserByPhone = async (phone) => {
+  return userModel.findOne({
+    phone: {
+      $in: [
+        phone,
+        `91${phone}`,
+        `+91${phone}`,
+      ],
+    },
+  });
+};
+
+export const sendLoginOtpService = async (
+  phoneValue
+) => {
+  const cleanPhone = normalizePhone(phoneValue);
+
+  const user = await findUserByPhone(cleanPhone);
+
+  if (!user) {
+    throw createError(
+      404,
+      "No account found with this phone number"
+    );
+  }
+
+  const otp = Math.floor(
+    100000 + Math.random() * 900000
+  ).toString();
+
+  const otpExpiresAt = new Date(
+    Date.now() + 5 * 60 * 1000
+  );
+
+  // Purani login OTP remove karo
+  await otpModel.deleteMany({
+    phone: cleanPhone,
+    purpose: "LOGIN",
+  });
+
+  // New OTP database mein save karo
+  const otpRecord = await otpModel.create({
+    phone: cleanPhone,
+    userId: user._id,
+    otp,
+    purpose: "LOGIN",
+    expiresAt: otpExpiresAt,
+    isVerified: false,
+  });
+
+  const isRealSmsEnabled =
+    process.env.USE_REAL_SMS === "true";
+
+  try {
+    if (isRealSmsEnabled) {
+      await sendOtpSms({
+        phone: cleanPhone,
+        otp,
+      });
+    } else {
+      console.log(
+        `Development login OTP for ${cleanPhone}: ${otp}`
+      );
+    }
+  } catch (error) {
+    // SMS fail ho to useless OTP record delete karo
+    await otpModel.deleteOne({
+      _id: otpRecord._id,
+    });
+
+    throw error;
+  }
+
+  return {
+    phone: cleanPhone,
+    expiresAt: otpExpiresAt,
+    ...(isRealSmsEnabled
+      ? {}
+      : {
+          developmentOtp: otp,
+        }),
+  };
+};
+
+export const verifyLoginOtpService = async ({
+  phone,
+  otp,
+}) => {
+  const cleanPhone = normalizePhone(phone);
+  const cleanOtp = String(otp ?? "").trim();
+
+  if (!cleanOtp) {
+    throw createError(400, "OTP is required");
+  }
+
+  if (!/^\d{6}$/.test(cleanOtp)) {
+    throw createError(
+      400,
+      "Please enter a valid 6-digit OTP"
+    );
+  }
+
+  const otpRecord = await otpModel
+    .findOne({
+      phone: cleanPhone,
+      purpose: "LOGIN",
+    })
+    .sort({
+      createdAt: -1,
+    });
+
+  if (!otpRecord) {
+    throw createError(
+      400,
+      "OTP not found. Please request a new OTP"
+    );
+  }
+
+  if (
+    new Date(otpRecord.expiresAt).getTime() <=
+    Date.now()
+  ) {
+    await otpModel.deleteOne({
+      _id: otpRecord._id,
+    });
+
+    throw createError(
+      400,
+      "OTP has expired. Please request a new OTP"
+    );
+  }
+
+  if (String(otpRecord.otp) !== cleanOtp) {
+    throw createError(
+      400,
+      "Invalid OTP. Please try again"
+    );
+  }
+
+  const user = await findUserByPhone(cleanPhone);
+
+  if (!user) {
+    throw createError(
+      404,
+      "No account found with this phone number"
+    );
+  }
+
+  if (user.isBlocked) {
+    throw createError(
+      403,
+      "Your account has been blocked. Please contact support"
+    );
+  }
+
+  // Successful verification ke baad OTP delete karo
+  await otpModel.deleteOne({
+    _id: otpRecord._id,
+  });
+
+  // Phone ka consistent format save karna ho to
+  if (user.phone !== cleanPhone) {
+    user.phone = cleanPhone;
+    await user.save();
+  }
+
+  return user;
+};

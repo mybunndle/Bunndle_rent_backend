@@ -6,6 +6,7 @@ import {
 } from "./auth.validation.js";
 
 import quickConnectModel from "../../models/quickConnectModel.js";
+import { generateToken } from "../../utils/generate.token.js";
 
 import sendEmail from "../../utils/email.js";
 
@@ -29,6 +30,8 @@ import {
   logoutService,
   deleteAccountService,
   createCorporateRequest_Service,
+  sendLoginOtpService,
+  verifyLoginOtpService
 } from "./auth.service.js";
 
 export async function register(req, res) {
@@ -760,5 +763,85 @@ export const createCorporateRequest = async (
           error.message ||
           "Internal server error",
       });
+  }
+};
+
+
+
+
+
+export const sendLoginOtp = async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    console.log(
+      "sendLoginOtp endpoint called for phone:",
+      phone
+    );
+
+    const data = await sendLoginOtpService(phone);
+
+    const isRealSmsEnabled =
+      process.env.USE_REAL_SMS === "true";
+
+    return res.status(200).json({
+      success: true,
+      message: isRealSmsEnabled
+        ? "OTP sent successfully."
+        : "OTP generated in development mode.",
+      data,
+    });
+  } catch (error) {
+    console.error("SEND LOGIN OTP ERROR:", error);
+
+    return res
+      .status(error.statusCode || 500)
+      .json({
+        success: false,
+        message:
+          error.message || "Unable to send OTP.",
+      });
+  }
+};
+
+
+
+
+
+
+export const verifyLoginOtp = async (req, res) => {
+  try {
+    const { phone, otp } = req.body;
+
+    const user = await verifyLoginOtpService({
+      phone,
+      otp,
+    });
+
+    const token = generateToken(user);
+
+    return res.status(200).json({
+      success: true,
+      message: "OTP verified successfully",
+      token,
+      data: {
+        id: user._id,
+        name: user.name,
+        phone: user.phone,
+        email: user.email,
+        type: user.type,
+        profileImage: user.profileImage,
+        kycStatus: user.kycStatus,
+      },
+    });
+  } catch (error) {
+    console.error("VERIFY OTP ERROR:", error);
+
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message:
+        error.message ||
+        "OTP verification failed",
+    });
   }
 };
