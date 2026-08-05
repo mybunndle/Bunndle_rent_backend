@@ -20,7 +20,7 @@ export const uploadAssetImages = multer({
 export const uploadUserProfile = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 1 * 1024 * 1024, // 5MB per file
+    fileSize: 5* 1024 * 1024, // 5MB per file
     files: 1                   // max 5 files
   },
 
@@ -40,7 +40,7 @@ export const uploadHomeImage = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 2 * 1024 * 1024, // 5MB per file
-    files: 1                 // max 5 files
+    files: 5                 // max 5 files
   },
 
 
