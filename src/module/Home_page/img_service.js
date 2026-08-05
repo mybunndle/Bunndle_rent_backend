@@ -48,7 +48,7 @@ export const uploadHomeFiles = async (file) => {
 };
 
 export const deleteHomeFiles = async (fileId) => {
-  console.log("called")
+  console.log("ImageKit fileId to delete:");
   try {
     if (!fileId) {
       console.log(

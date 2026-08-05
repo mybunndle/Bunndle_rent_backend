@@ -6,6 +6,9 @@ import {
   getLimitedTimeOffersService,
   addHomeDealService,
   getHomeDealsService,
+  deleteTrendingRecommendedService,
+  deleteLimitedTimeOfferService,
+  deleteHomeDealService,
 } from "./home.service.js";
 
 export const addTrendingAssetController = async (req, res) => {
@@ -94,6 +97,30 @@ export const getRecommendedAssetsController = async (req, res) => {
   }
 };
 
+export const deleteTrendingRecommendedController = async (req, res) => {
+  try {
+    const { assetId } = req.params;
+    const result = await deleteTrendingRecommendedService(assetId);
+    return res
+      .status(200)
+      .json({
+        success: true,
+        message: result.message,
+        data: result.data,
+        ...(result.warning && { warning: result.warning }),
+      });
+  } catch (error) {
+    console.error("DELETE TRENDING RECOMMENDED ERROR:", error);
+    return res
+      .status(error.statusCode || 500)
+      .json({
+        success: false,
+        message:
+          error.message || "Failed to delete trending or recommended asset.",
+      });
+  }
+};
+
 export const addLimitedTimeOfferController = async (req, res) => {
   try {
     const limitedTimeOffer = await addLimitedTimeOfferService({
@@ -136,6 +163,25 @@ export const getLimitedTimeOffersController = async (req, res) => {
   }
 };
 
+export const deleteLimitedTimeOfferController = async (req, res) => {
+  try {
+    const { offerId } = req.params;
+    const result = await deleteLimitedTimeOfferService(offerId);
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+      data: result.data,
+      ...(result.warning && { warning: result.warning }),
+    });
+  } catch (error) {
+    console.error("DELETE LIMITED-TIME OFFER ERROR:", error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Failed to delete limited-time offer.",
+    });
+  }
+};
+
 export const addHomeDealController = async (req, res) => {
   try {
     const homeDeal = await addHomeDealService({
@@ -173,6 +219,25 @@ export const getHomeDealsController = async (req, res) => {
     return res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || "Failed to fetch home deals.",
+    });
+  }
+};
+
+export const deleteHomeDealController = async (req, res) => {
+  try {
+    const { dealId } = req.params;
+    const result = await deleteHomeDealService(dealId);
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+      data: result.data,
+      ...(result.warning && { warning: result.warning }),
+    });
+  } catch (error) {
+    console.error("DELETE HOME DEAL ERROR:", error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Failed to delete home deal.",
     });
   }
 };

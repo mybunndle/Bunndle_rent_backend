@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+
 import homeTrendRecomModel from "../../models/homeTrend&RecomModel.js";
 import limitedTimeOfferModel from "../../models/limitedtimeofferModel.js";
 import homeDealsModel from "../../models/homeDealsModel.js";
@@ -16,6 +18,25 @@ const cleanValue = (value) => {
 
   const cleanedValue = String(value).trim();
   return cleanedValue || null;
+};
+
+const validateObjectId = (
+  id,
+  fieldName = "ID",
+) => {
+  if (!id) {
+    throw createError(
+      400,
+      `${fieldName} is required.`,
+    );
+  }
+
+  if (!mongoose.isValidObjectId(id)) {
+    throw createError(
+      400,
+      `Invalid ${fieldName}.`,
+    );
+  }
 };
 
 export const addHomeAssetService = async ({
@@ -119,6 +140,59 @@ export const getRecommendedAssetsService = async () => {
   return recommendedAssets;
 };
 
+export const deleteTrendingRecommendedService = async (
+  assetId,
+) => {
+  validateObjectId(assetId, "Asset ID");
+
+  const asset =
+    await homeTrendRecomModel.findById(assetId);
+
+  if (!asset) {
+    throw createError(
+      404,
+      "Trending or recommended asset not found.",
+    );
+  }
+
+  const imageFileId =
+    asset.image?.fileId || null;
+
+  const assetType =
+    asset.type === "trending"
+      ? "Trending"
+      : "Recommended";
+
+  await homeTrendRecomModel.deleteOne({
+    _id: asset._id,
+  });
+
+  let warning = null;
+
+  if (imageFileId) {
+    try {
+      await deleteHomeFiles(imageFileId);
+    } catch (error) {
+      console.error(
+        "TRENDING/RECOMMENDED IMAGE DELETE ERROR:",
+        error.message,
+      );
+
+      warning =
+        "Asset was deleted from the database, but its image could not be deleted from ImageKit.";
+    }
+  }
+
+  return {
+    message: `${assetType} asset deleted permanently.`,
+    data: {
+      _id: asset._id,
+      assetName: asset.assetName || null,
+      type: asset.type,
+    },
+    warning,
+  };
+};
 export const addLimitedTimeOfferService = async ({
   body = {},
   file = null,
@@ -231,6 +305,60 @@ export const getLimitedTimeOffersService = async () => {
   return limitedTimeOffers;
 };
 
+export const deleteLimitedTimeOfferService = async (
+  offerId,
+) => {
+  validateObjectId(
+    offerId,
+    "Limited-time offer ID",
+  );
+
+  const limitedTimeOffer =
+    await limitedTimeOfferModel.findById(
+      offerId,
+    );
+
+  if (!limitedTimeOffer) {
+    throw createError(
+      404,
+      "Limited-time offer not found.",
+    );
+  }
+
+  const imageFileId =
+    limitedTimeOffer.image?.fileId || null;
+
+  await limitedTimeOfferModel.deleteOne({
+    _id: limitedTimeOffer._id,
+  });
+
+  let warning = null;
+
+  if (imageFileId) {
+    try {
+      await deleteHomeFiles(imageFileId);
+    } catch (error) {
+      console.error(
+        "LIMITED-TIME OFFER IMAGE DELETE ERROR:",
+        error.message,
+      );
+
+      warning =
+        "Limited-time offer was deleted from the database, but its image could not be deleted from ImageKit.";
+    }
+  }
+
+  return {
+    message:
+      "Limited-time offer deleted permanently.",
+    data: {
+      _id: limitedTimeOffer._id,
+      title: limitedTimeOffer.title || null,
+    },
+    warning,
+  };
+};
+
 export const addHomeDealService = async ({ file = null }) => {
   let uploadedImage = null;
 
@@ -281,4 +409,62 @@ export const getHomeDealsService = async () => {
     .lean();
 
   return homeDeals;
+};
+
+export const deleteHomeDealService = async (
+  dealId,
+) => {
+  validateObjectId(dealId, "Home deal ID");
+
+  const homeDeal =
+    await homeDealsModel.findById(dealId);
+
+  if (!homeDeal) {
+    throw createError(
+      404,
+      "Home deal not found.",
+    );
+  }
+
+  const imageFileIds = Array.isArray(
+    homeDeal.images,
+  )
+    ? homeDeal.images
+        .map((image) => image?.fileId)
+        .filter(Boolean)
+    : [];
+
+  await homeDealsModel.deleteOne({
+    _id: homeDeal._id,
+  });
+
+  let failedImageCount = 0;
+
+  for (const fileId of imageFileIds) {
+    try {
+      await deleteHomeFiles(fileId);
+    } catch (error) {
+      failedImageCount += 1;
+
+      console.error(
+        "HOME DEAL IMAGE DELETE ERROR:",
+        error.message,
+      );
+    }
+  }
+
+  return {
+    message: "Home deal deleted permanently.",
+    data: {
+      _id: homeDeal._id,
+      totalImages: imageFileIds.length,
+      deletedImages:
+        imageFileIds.length -
+        failedImageCount,
+    },
+    warning:
+      failedImageCount > 0
+        ? `${failedImageCount} home deal image(s) could not be deleted from ImageKit.`
+        : null,
+  };
 };
