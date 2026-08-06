@@ -194,6 +194,178 @@ export const deleteTrendingRecommendedService = async (
     warning,
   };
 };
+
+export const updateTrendingRecommendedService = async ({
+  assetId,
+  body = {},
+  file = null,
+}) => {
+  validateObjectId(assetId, "Asset ID");
+
+  const asset =
+    await homeTrendRecomModel.findById(assetId);
+
+  if (!asset) {
+    throw createError(
+      404,
+      "Trending or recommended asset not found.",
+    );
+  }
+
+  const updateData = {};
+
+  if (body.assetName !== undefined) {
+    updateData.assetName =
+      cleanValue(body.assetName);
+  }
+
+  if (body.type !== undefined) {
+    const type =
+      cleanValue(body.type)?.toLowerCase();
+
+    if (
+      !type ||
+      !["trending", "recommended"].includes(type)
+    ) {
+      throw createError(
+        400,
+        "Type must be either trending or recommended.",
+      );
+    }
+
+    updateData.type = type;
+  }
+
+  if (body.category !== undefined) {
+    updateData.category =
+      cleanValue(body.category);
+  }
+
+  if (body.brand !== undefined) {
+    updateData.brand =
+      cleanValue(body.brand);
+  }
+
+  if (body.model !== undefined) {
+    updateData.model =
+      cleanValue(body.model);
+  }
+
+  if (body.price !== undefined) {
+    updateData.price =
+      cleanValue(body.price);
+  }
+
+  if (body.rank !== undefined) {
+    if (
+      body.rank === null ||
+      String(body.rank).trim() === ""
+    ) {
+      updateData.rank = null;
+    } else {
+      const rank = Number(body.rank);
+
+      if (
+        Number.isNaN(rank) ||
+        !Number.isInteger(rank) ||
+        rank < 1
+      ) {
+        throw createError(
+          400,
+          "Rank must be a whole number greater than or equal to 1.",
+        );
+      }
+
+      updateData.rank = rank;
+    }
+  }
+
+  if (
+    Object.keys(updateData).length === 0 &&
+    !file
+  ) {
+    throw createError(
+      400,
+      "Please provide at least one field or image to update.",
+    );
+  }
+
+  const oldImageFileId =
+    asset.image?.fileId || null;
+
+  let uploadedImage = null;
+
+  try {
+    if (file) {
+      uploadedImage =
+        await uploadHomeFiles(file);
+
+      updateData.image = {
+        url: uploadedImage.url,
+        fileId: uploadedImage.fileId,
+        filename: uploadedImage.filename,
+      };
+    }
+
+    const updatedAsset =
+      await homeTrendRecomModel.findByIdAndUpdate(
+        assetId,
+        {
+          $set: updateData,
+        },
+        {
+          returnDocument: "after",
+          runValidators: true,
+        },
+      );
+
+    if (!updatedAsset) {
+      throw createError(
+        404,
+        "Trending or recommended asset not found.",
+      );
+    }
+
+    let warning = null;
+
+    // New image successfully update hone ke baad old image delete hogi
+    if (
+      uploadedImage?.fileId &&
+      oldImageFileId &&
+      oldImageFileId !== uploadedImage.fileId
+    ) {
+      const deleteResult =
+        await deleteHomeFiles(oldImageFileId);
+
+      if (!deleteResult.success) {
+        warning =
+          "Asset updated successfully, but the old image could not be deleted from ImageKit.";
+      }
+    }
+
+    return {
+      message:
+        "Trending/recommended asset updated successfully.",
+      data: updatedAsset,
+      warning,
+    };
+  } catch (error) {
+    // Database update fail hone par newly uploaded image delete karo
+    if (uploadedImage?.fileId) {
+      await deleteHomeFiles(
+        uploadedImage.fileId,
+      ).catch((cleanupError) => {
+        console.error(
+          "NEW IMAGE CLEANUP ERROR:",
+          cleanupError.message,
+        );
+      });
+    }
+
+    throw error;
+  }
+};
+
 export const addLimitedTimeOfferService = async ({
   body = {},
   file = null,
@@ -358,6 +530,197 @@ export const deleteLimitedTimeOfferService = async (
     },
     warning,
   };
+};
+
+export const updateLimitedTimeOfferService = async ({
+  offerId,
+  body = {},
+  file = null,
+}) => {
+  validateObjectId(
+    offerId,
+    "Limited-time offer ID",
+  );
+
+  const offer =
+    await limitedTimeOfferModel.findById(offerId);
+
+  if (!offer) {
+    throw createError(
+      404,
+      "Limited-time offer not found.",
+    );
+  }
+
+  const updateData = {};
+
+  if (body.title !== undefined) {
+    const title = cleanValue(body.title);
+
+    if (!title) {
+      throw createError(
+        400,
+        "Limited-time offer title cannot be empty.",
+      );
+    }
+
+    updateData.title = title;
+  }
+
+  if (body.category !== undefined) {
+    updateData.category = cleanValue(body.category);
+  }
+
+  if (body.discountPercentage !== undefined) {
+    const discountPercentage = Number(
+      body.discountPercentage,
+    );
+
+    if (
+      String(body.discountPercentage).trim() === "" ||
+      Number.isNaN(discountPercentage)
+    ) {
+      throw createError(
+        400,
+        "Valid discount percentage is required.",
+      );
+    }
+
+    if (
+      discountPercentage < 0 ||
+      discountPercentage > 100
+    ) {
+      throw createError(
+        400,
+        "Discount percentage must be between 0 and 100.",
+      );
+    }
+
+    updateData.discountPercentage =
+      discountPercentage;
+  }
+
+  if (body.discountPrice !== undefined) {
+    const discountPrice = Number(
+      body.discountPrice,
+    );
+
+    if (
+      String(body.discountPrice).trim() === "" ||
+      Number.isNaN(discountPrice)
+    ) {
+      throw createError(
+        400,
+        "Valid discount price is required.",
+      );
+    }
+
+    if (discountPrice < 0) {
+      throw createError(
+        400,
+        "Discount price cannot be negative.",
+      );
+    }
+
+    updateData.discountPrice = discountPrice;
+  }
+
+  if (body.rank !== undefined) {
+    const rank = Number(body.rank);
+
+    if (
+      String(body.rank).trim() === "" ||
+      Number.isNaN(rank) ||
+      !Number.isInteger(rank) ||
+      rank < 1
+    ) {
+      throw createError(
+        400,
+        "Rank must be a whole number greater than or equal to 1.",
+      );
+    }
+
+    updateData.rank = rank;
+  }
+
+  if (Object.keys(updateData).length === 0 && !file) {
+    throw createError(
+      400,
+      "Please provide at least one field or image to update.",
+    );
+  }
+
+  const oldImageFileId =
+    offer.image?.fileId || null;
+
+  let uploadedImage = null;
+
+  try {
+    if (file) {
+      uploadedImage = await uploadHomeFiles(file);
+
+      updateData.image = {
+        url: uploadedImage.url,
+        fileId: uploadedImage.fileId,
+        filename: uploadedImage.filename,
+      };
+    }
+
+    const updatedOffer =
+      await limitedTimeOfferModel.findByIdAndUpdate(
+        offerId,
+        {
+          $set: updateData,
+        },
+        {
+          returnDocument: "after",
+          runValidators: true,
+        },
+      );
+
+    if (!updatedOffer) {
+      throw createError(
+        404,
+        "Limited-time offer not found.",
+      );
+    }
+
+    let warning = null;
+
+    if (
+      uploadedImage?.fileId &&
+      oldImageFileId &&
+      oldImageFileId !== uploadedImage.fileId
+    ) {
+      const deleteResult =
+        await deleteHomeFiles(oldImageFileId);
+
+      if (!deleteResult.success) {
+        warning =
+          "Offer updated successfully, but the old image could not be deleted from ImageKit.";
+      }
+    }
+
+    return {
+      message:
+        "Limited-time offer updated successfully.",
+      data: updatedOffer,
+      warning,
+    };
+  } catch (error) {
+    if (uploadedImage?.fileId) {
+      await deleteHomeFiles(
+        uploadedImage.fileId,
+      ).catch((cleanupError) => {
+        console.error(
+          "NEW OFFER IMAGE CLEANUP ERROR:",
+          cleanupError.message,
+        );
+      });
+    }
+
+    throw error;
+  }
 };
 
 export const addHomeDealService = async ({ file = null }) => {

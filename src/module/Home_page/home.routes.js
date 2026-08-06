@@ -13,6 +13,8 @@ import {
   deleteTrendingRecommendedController,
   deleteLimitedTimeOfferController, 
   deleteHomeDealController,
+  updateTrendingRecommendedController,
+  updateLimitedTimeOfferController,
 } from "./home.controller.js";
 
 const router = express.Router();
@@ -37,7 +39,8 @@ router.post(
 // Fetch recommended assets
 router.get("/get_recommended", getRecommendedAssetsController);
 
-router.delete( "/delete_trending_recommended/:assetId", 
+router.delete( 
+  "/delete_trending_recommended/:assetId", 
   authenticate, 
   deleteTrendingRecommendedController, 
 );
@@ -51,7 +54,8 @@ router.post(
 
 router.get("/get_limitedtimeoffer", getLimitedTimeOffersController);
 
-router.delete( "/delete_limitedtimeoffer/:assetId", 
+router.delete( 
+  "/delete_limitedtimeoffer/:assetId", 
   authenticate, 
   deleteLimitedTimeOfferController, 
 );
@@ -65,9 +69,24 @@ router.post(
 
 router.get("/get_home_deals", getHomeDealsController);
 
-router.delete( "/delete_home_deal/:assetId", 
+router.delete( 
+  "/delete_home_deal/:assetId", 
   authenticate, 
   deleteHomeDealController, 
+);
+
+router.patch(
+  "/update_trending_recommended/:assetId",
+  authenticate,
+  uploadHomeImage.single("image"),
+  updateTrendingRecommendedController,
+);
+
+router.patch(
+  "/update_limitedtimeoffer/:offerId",
+  authenticate,
+  uploadHomeImage.single("image"),
+  updateLimitedTimeOfferController,
 );
 
 export default router;
