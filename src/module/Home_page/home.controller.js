@@ -10,6 +10,7 @@ import {
   deleteLimitedTimeOfferService,
   deleteHomeDealService,
   updateTrendingRecommendedService,
+  updateLimitedTimeOfferService,
 } from "./home.service.js";
 
 export const addTrendingAssetController = async (req, res) => {

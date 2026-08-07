@@ -17,7 +17,7 @@ import {
   updateLimitedTimeOfferController,
 } from "./home.controller.js";
 
-const router = express.Router();
+const router = express.Router();               
 
 router.post(
   "/add_trending",
