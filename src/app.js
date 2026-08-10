@@ -5,6 +5,7 @@ import authRoutes from "./module/auth/auth.routes.js";
 import assetRoutes from "./module/asset/asset.routes.js";
 import homeRoutes from "./module/Home_page/home.routes.js";
 import enquiryRoutes from "./module/equiry/enquiry.routes.js";
+import paymentRoutes from "./module/payment/payment.routes.js";
 const app = express();
 
 // cors
@@ -45,6 +46,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/asset", assetRoutes);
 app.use("/api/home", homeRoutes);
 app.use("/api/enquiry", enquiryRoutes);
+app.use("/api/payment", paymentRoutes)
 
 app.use((req, res) => {
   return res.status(404).json({
