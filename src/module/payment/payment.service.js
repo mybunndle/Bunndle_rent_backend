@@ -884,3 +884,164 @@ export const verifyPaymentOrder_Service = async ({
     await session.endSession();
   }
 };
+export const getUserPayments_Service = async ({
+  userId,
+  page = 1,
+  limit = 10,
+  status,
+}) => {
+  // ---------------------------------------
+  // VALIDATION
+  // ---------------------------------------
+
+  if (!userId) {
+    throw createError(
+      401,
+      "User authentication is required."
+    );
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    throw createError(
+      400,
+      "Invalid User ID."
+    );
+  }
+
+  // ---------------------------------------
+  // NORMALIZE PAGINATION
+  // ---------------------------------------
+
+  const currentPage = Math.max(
+    Number(page) || 1,
+    1
+  );
+
+  const perPage = Math.min(
+    Math.max(Number(limit) || 10, 1),
+    50
+  );
+
+  const skip =
+    (currentPage - 1) * perPage;
+
+  // ---------------------------------------
+  // FILTER
+  // ---------------------------------------
+
+  const filter = {
+    userId,
+  };
+
+  if (status) {
+    const allowedStatuses = [
+      "PENDING",
+      "SUCCESS",
+      "FAILED",
+      "REFUNDED",
+    ];
+
+    const normalizedStatus =
+      status.toUpperCase();
+
+    if (
+      !allowedStatuses.includes(
+        normalizedStatus
+      )
+    ) {
+      throw createError(
+        400,
+        "Invalid payment status."
+      );
+    }
+
+    filter.status =
+      normalizedStatus;
+  }
+
+  // ---------------------------------------
+  // GET PAYMENTS
+  // ---------------------------------------
+
+  const [
+    payments,
+    totalPayments,
+  ] = await Promise.all([
+    paymentModel
+      .find(filter)
+
+      .populate({
+        path: "assetId",
+        select:
+          "assetName brand model category subCategory price files",
+      })
+
+      .populate({
+        path: "orderId",
+        select:
+          "totalAmount currency rentalDurationMonths rentalStartDate rentalEndDate status createdAt",
+      })
+
+      .sort({
+        createdAt: -1,
+      })
+
+      .skip(skip)
+
+      .limit(perPage)
+
+      .lean(),
+
+    paymentModel.countDocuments(
+      filter
+    ),
+  ]);
+
+  // ---------------------------------------
+  // PAGINATION
+  // ---------------------------------------
+
+  const totalPages =
+    Math.ceil(
+      totalPayments / perPage
+    );
+
+  return {
+    success: true,
+
+    message:
+      "Payment history fetched successfully.",
+
+    data: {
+      payments,
+
+      pagination: {
+        currentPage,
+
+        perPage,
+
+        totalPayments,
+
+        totalPages,
+
+        hasNextPage:
+          currentPage <
+          totalPages,
+
+        hasPreviousPage:
+          currentPage > 1,
+
+        nextPage:
+          currentPage <
+          totalPages
+            ? currentPage + 1
+            : null,
+
+        previousPage:
+          currentPage > 1
+            ? currentPage - 1
+            : null,
+      },
+    },
+  };
+};
