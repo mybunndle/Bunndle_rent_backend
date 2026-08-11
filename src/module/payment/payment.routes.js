@@ -5,8 +5,6 @@ const router = express.Router();
 
 
 
-
-
 router.post("/create-order", authenticate, orderController);
 router.post("/verify-payment", authenticate, verifyPaymentController);
 router.get(

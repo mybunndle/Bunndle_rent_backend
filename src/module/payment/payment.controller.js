@@ -1,17 +1,20 @@
-import {createPaymentOrder_Service, verifyPaymentOrder_Service, getUserPayments_Service } from "./payment.service.js"
+import {
+  createPaymentOrder_Service,
+  verifyPaymentOrder_Service,
+  getUserPayments_Service,
+} from "./payment.service.js";
 
 export const orderController = async (req, res, next) => {
   try {
     const userId = req.user?._id;
 
-
-    const { assetId ,amount,duration} = req.body;
+    const { assetId, amount, duration } = req.body;
 
     const result = await createPaymentOrder_Service({
       userId,
       assetId,
       amount,
-      duration
+      duration,
     });
 
     return res.status(201).json(result);
@@ -40,9 +43,6 @@ export const verifyPaymentController = async (req, res, next) => {
   }
 };
 
-
-
-
 export const getUserPaymentsController =
   async (req, res, next) => {
     try {
@@ -50,17 +50,15 @@ export const getUserPaymentsController =
         req.user?._id;
 
       const {
-        page,
-        limit,
-        status,
+        status1,
+        status2,
       } = req.query;
 
       const result =
         await getUserPayments_Service({
           userId,
-          page,
-          limit,
-          status,
+          status1,
+          status2,
         });
 
       return res
