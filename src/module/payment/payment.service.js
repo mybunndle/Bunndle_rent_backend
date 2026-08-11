@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import mongoose from "mongoose";
 import createError from "http-errors";
-import razorpay from "../../config/rajorpay.js";
+import Razorpay from "../../config/rajorpay.js";
 
 import orderModel from "../../models/orderModel.js";
 import paymentModel from "../../models/paymentModel.js";
@@ -93,7 +93,7 @@ export const createPaymentOrder_Service = async ({ userId, assetId }) => {
     // CREATE RAZORPAY ORDER
     // ---------------------------------------
 
-    const razorpayOrder = await razorpay.orders.create({
+    const razorpayOrder = await Razorpay.orders.create({
       amount: amountInPaise,
 
       currency: "INR",
@@ -117,7 +117,7 @@ export const createPaymentOrder_Service = async ({ userId, assetId }) => {
     // SAVE RAZORPAY ORDER ID
     // ---------------------------------------
 
-    internalOrder.razorpayOrderId = razorpayOrder.id;
+    internalOrder.razorpayOrderId = Razorpay.orders.create;
 
     await internalOrder.save();
 
