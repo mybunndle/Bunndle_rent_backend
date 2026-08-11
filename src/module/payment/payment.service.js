@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import mongoose from "mongoose";
 import createError from "http-errors";
-import razorpayInstance from "../../config/rajorpay.js";
+import razorpay from "../../config/rajorpay.js";
 
 import orderModel from "../../models/orderModel.js";
 import paymentModel from "../../models/paymentModel.js";
@@ -93,7 +93,7 @@ export const createPaymentOrder_Service = async ({ userId, assetId }) => {
     // CREATE RAZORPAY ORDER
     // ---------------------------------------
 
-    const razorpayOrder = await razorpayInstance.orders.create({
+    const razorpayOrder = await razorpay.orders.create({
       amount: amountInPaise,
 
       currency: "INR",
@@ -323,7 +323,7 @@ export const verifyPaymentOrder_Service = async ({
   // ---------------------------------------
 
   const razorpayPayment =
-    await razorpayInstance.payments.fetch(razorpay_payment_id);
+    await razorpay.payments.fetch(razorpay_payment_id);
 
   if (!razorpayPayment) {
     throw createError(400, "Unable to verify payment with Razorpay.");
