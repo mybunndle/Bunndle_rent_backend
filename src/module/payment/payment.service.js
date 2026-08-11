@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import mongoose from "mongoose";
 import createError from "http-errors";
 
@@ -6,15 +5,14 @@ import razorpayInstance from "../../config/rajorpay.js";
 
 import orderModel from "../../models/orderModel.js";
 import paymentModel from "../../models/paymentModel.js";
-import rentalHistoryModel from "../../models/rentHistoryModel.js";
 import assetModel from "../../models/assetModel.js";
-
 
 export const createPaymentOrder_Service = async ({
   userId,
   assetId,
+  amount,
+  duration,
 }) => {
-
   // ---------------------------------------
   // VALIDATION
   // ---------------------------------------
@@ -30,6 +28,67 @@ export const createPaymentOrder_Service = async ({
     throw createError(
       400,
       "Invalid Asset ID."
+    );
+  }
+
+  if (
+    amount === undefined ||
+    amount === null ||
+    amount === ""
+  ) {
+    throw createError(
+      400,
+      "Rental amount is required."
+    );
+  }
+
+  if (
+    duration === undefined ||
+    duration === null ||
+    duration === ""
+  ) {
+    throw createError(
+      400,
+      "Rental duration is required."
+    );
+  }
+
+  // ---------------------------------------
+  // NORMALIZE VALUES
+  // ---------------------------------------
+
+  const totalAmount = Number(amount);
+
+  const rentalDurationMonths =
+    Number(duration);
+
+  if (
+    !Number.isFinite(totalAmount) ||
+    totalAmount <= 0
+  ) {
+    throw createError(
+      400,
+      "Invalid rental amount."
+    );
+  }
+
+  if (
+    !Number.isInteger(
+      rentalDurationMonths
+    ) ||
+    rentalDurationMonths <= 0
+  ) {
+    throw createError(
+      400,
+      "Rental duration must be a valid number of months."
+    );
+  }
+
+  // Optional maximum rental duration
+  if (rentalDurationMonths > 36) {
+    throw createError(
+      400,
+      "Rental duration cannot exceed 36 months."
     );
   }
 
@@ -55,33 +114,26 @@ export const createPaymentOrder_Service = async ({
   const rentalStartDate = new Date();
 
   const rentalEndDate = new Date(
-    rentalStartDate.getTime() +
-      30 * 24 * 60 * 60 * 1000
+    rentalStartDate
+  );
+
+  rentalEndDate.setMonth(
+    rentalEndDate.getMonth() +
+      rentalDurationMonths
   );
 
   // ---------------------------------------
-  // AMOUNT
+  // RAZORPAY AMOUNT
   // ---------------------------------------
 
-  const totalAmount = Number(asset.price);
-
-  if (
-    !Number.isFinite(totalAmount) ||
-    totalAmount <= 0
-  ) {
-    throw createError(
-      400,
-      "Invalid asset rental amount."
-    );
-  }
-
-  // Razorpay amount is in paise
+  // Razorpay amount must be in paise
   const amountInPaise = Math.round(
     totalAmount * 100
   );
 
   // ---------------------------------------
-  // ORDER EXPIRY - 15 MINUTES
+  // PAYMENT ORDER EXPIRY
+  // 15 minutes
   // ---------------------------------------
 
   const expiresAt = new Date(
@@ -91,26 +143,31 @@ export const createPaymentOrder_Service = async ({
   let internalOrder = null;
 
   try {
-
     // ---------------------------------------
     // CREATE INTERNAL ORDER
     // ---------------------------------------
 
-    internalOrder = await orderModel.create({
-      userId,
-      assetId,
+    internalOrder =
+      await orderModel.create({
+        userId,
 
-      totalAmount,
+        assetId,
 
-      currency: "INR",
+        totalAmount,
 
-      rentalStartDate,
-      rentalEndDate,
+        currency: "INR",
 
-      expiresAt,
+        rentalDurationMonths,
 
-      status: "PENDING_PAYMENT",
-    });
+        rentalStartDate,
+
+        rentalEndDate,
+
+        expiresAt,
+
+        status:
+          "PENDING_PAYMENT",
+      });
 
     // ---------------------------------------
     // CREATE RAZORPAY ORDER
@@ -118,14 +175,18 @@ export const createPaymentOrder_Service = async ({
 
     const razorpayOrder =
       await razorpayInstance.orders.create({
-        amount: amountInPaise,
+        amount:
+          amountInPaise,
 
-        currency: "INR",
+        currency:
+          "INR",
 
-        receipt: `rent_${internalOrder._id}`,
+        receipt:
+          `rent_${internalOrder._id}`,
 
         notes: {
-          app: "BUNNDLE_RENT",
+          app:
+            "BUNNDLE_RENT",
 
           internalOrderId:
             internalOrder._id.toString(),
@@ -135,6 +196,9 @@ export const createPaymentOrder_Service = async ({
 
           assetId:
             assetId.toString(),
+
+          durationMonths:
+            rentalDurationMonths.toString(),
 
           paymentType:
             "ASSET_RENT",
@@ -190,7 +254,6 @@ export const createPaymentOrder_Service = async ({
         "Payment order created successfully.",
 
       data: {
-
         orderId:
           internalOrder._id,
 
@@ -201,20 +264,28 @@ export const createPaymentOrder_Service = async ({
           razorpayOrder.id,
 
         keyId:
-          process.env.RAZORPAY_KEY_ID,
+          process.env
+            .RAZORPAY_KEY_ID,
 
-        // Paise
+        // Paise - Razorpay Checkout
         amount:
           razorpayOrder.amount,
 
-        // Rupees
+        // Rupees - display
         displayAmount:
           totalAmount,
 
         currency:
           razorpayOrder.currency,
 
+        duration:
+          rentalDurationMonths,
+
+        durationUnit:
+          "MONTH",
+
         rentalStartDate,
+
         rentalEndDate,
 
         expiresAt,
@@ -234,9 +305,7 @@ export const createPaymentOrder_Service = async ({
         },
       },
     };
-
   } catch (error) {
-
     // ---------------------------------------
     // MARK ORDER FAILED
     // ---------------------------------------
@@ -245,7 +314,8 @@ export const createPaymentOrder_Service = async ({
       await orderModel.findByIdAndUpdate(
         internalOrder._id,
         {
-          status: "FAILED",
+          status:
+            "FAILED",
         }
       );
     }

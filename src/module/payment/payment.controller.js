@@ -4,11 +4,14 @@ export const orderController = async (req, res, next) => {
   try {
     const userId = req.user?._id;
 
-    const { assetId } = req.body;
+
+    const { assetId ,amount,duration} = req.body;
 
     const result = await createPaymentOrder_Service({
       userId,
       assetId,
+      amount,
+      duration
     });
 
     return res.status(201).json(result);

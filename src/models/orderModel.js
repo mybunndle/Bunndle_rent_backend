@@ -26,7 +26,6 @@ const orderSchema = new mongoose.Schema(
     // PAYMENT AMOUNT
     // ---------------------------------------
 
-    // Amount in rupees
     totalAmount: {
       type: Number,
       required: true,
@@ -41,19 +40,24 @@ const orderSchema = new mongoose.Schema(
     },
 
     // ---------------------------------------
-    // RENTAL PERIOD
+    // RENTAL DURATION
     // ---------------------------------------
 
-    rentalDurationDays: {
+    // Example:
+    // 1 = 1 month
+    // 3 = 3 months
+    // 6 = 6 months
+    // 12 = 12 months
+    rentalDurationMonths: {
       type: Number,
-      default: 30,
-      min: 1,
       required: true,
+      min: 1,
+      max: 36,
     },
 
-    /*
-     * Set these only AFTER successful payment.
-     */
+    // ---------------------------------------
+    // RENTAL PERIOD
+    // ---------------------------------------
 
     rentalStartDate: {
       type: Date,
@@ -78,16 +82,6 @@ const orderSchema = new mongoose.Schema(
     // PAYMENT ORDER EXPIRY
     // ---------------------------------------
 
-    /*
-     * Example:
-     * Razorpay payment attempt must be completed
-     * within 15 minutes.
-     *
-     * Do NOT use MongoDB TTL here because
-     * production payment/order records should
-     * normally be retained for audit/history.
-     */
-
     expiresAt: {
       type: Date,
       required: true,
@@ -111,15 +105,11 @@ const orderSchema = new mongoose.Schema(
       ],
 
       default: "PENDING_PAYMENT",
-
       required: true,
     },
   },
-
   {
-    // Store normal Date timestamps.
     timestamps: true,
-
     versionKey: false,
   }
 );
@@ -128,29 +118,20 @@ const orderSchema = new mongoose.Schema(
 // INDEXES
 // ---------------------------------------
 
-// My orders:
-// Order.find({ userId }).sort({ createdAt: -1 })
-
 orderSchema.index({
   userId: 1,
   createdAt: -1,
 });
 
-// Admin / asset order queries
-
 orderSchema.index({
   assetId: 1,
   createdAt: -1,
 });
 
-// Find active/pending orders for an asset
-
 orderSchema.index({
   assetId: 1,
   status: 1,
 });
-
-// Order expiry worker
 
 orderSchema.index({
   status: 1,
