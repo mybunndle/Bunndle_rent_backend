@@ -1,8 +1,11 @@
 import mongoose from "mongoose";
 import createError from "http-errors";
-
+import {
+  createHmac,
+  timingSafeEqual,
+} from "node:crypto";
 import razorpayInstance from "../../config/rajorpay.js";
-
+import rentalHistoryModel from "../../models/rentHistoryModel.js";
 import orderModel from "../../models/orderModel.js";
 import paymentModel from "../../models/paymentModel.js";
 import assetModel from "../../models/assetModel.js";
@@ -352,8 +355,15 @@ export const verifyPaymentOrder_Service = async ({
     );
   }
 
+  if (!process.env.RAZORPAY_KEY_SECRET) {
+    throw createError(
+      500,
+      "Razorpay configuration is missing."
+    );
+  }
+
   // ---------------------------------------
-  // FIND PAYMENT
+  // FIND PAYMENT FROM DATABASE
   // ---------------------------------------
 
   const payment = await paymentModel.findOne({
@@ -369,7 +379,8 @@ export const verifyPaymentOrder_Service = async ({
   }
 
   // ---------------------------------------
-  // ALREADY VERIFIED
+  // IDEMPOTENT CHECK
+  // Already successfully verified
   // ---------------------------------------
 
   if (payment.status === "SUCCESS") {
@@ -379,12 +390,16 @@ export const verifyPaymentOrder_Service = async ({
     ) {
       return {
         success: true,
+
         message:
           "Payment already verified successfully.",
 
         data: {
-          orderId: payment.orderId,
-          paymentId: payment._id,
+          orderId:
+            payment.orderId,
+
+          paymentId:
+            payment._id,
 
           razorpayOrderId:
             payment.razorpayOrderId,
@@ -392,7 +407,7 @@ export const verifyPaymentOrder_Service = async ({
           razorpayPaymentId:
             payment.razorpayPaymentId,
 
-          status:
+          paymentStatus:
             payment.status,
         },
       };
@@ -421,23 +436,21 @@ export const verifyPaymentOrder_Service = async ({
     );
   }
 
-  if (
-    internalOrder.status === "FAILED" ||
-    internalOrder.status === "EXPIRED"
-  ) {
-    throw createError(
-      400,
-      `Order cannot be verified because its status is ${internalOrder.status}.`
-    );
-  }
-
   // ---------------------------------------
-  // SERVER-SIDE RAZORPAY ORDER ID
+  // SERVER STORED RAZORPAY ORDER ID
   // ---------------------------------------
 
   const serverOrderId =
     payment.razorpayOrderId;
 
+  if (!serverOrderId) {
+    throw createError(
+      400,
+      "Razorpay order ID is missing from payment record."
+    );
+  }
+
+  // Frontend order must match server order
   if (
     razorpay_order_id !==
     serverOrderId
@@ -449,17 +462,16 @@ export const verifyPaymentOrder_Service = async ({
   }
 
   // ---------------------------------------
-  // GENERATE EXPECTED SIGNATURE
+  // CREATE EXPECTED SIGNATURE
   //
   // order_id|payment_id
   // ---------------------------------------
 
   const generatedSignature =
-    crypto
-      .createHmac(
-        "sha256",
-        process.env.RAZORPAY_KEY_SECRET
-      )
+    createHmac(
+      "sha256",
+      process.env.RAZORPAY_KEY_SECRET
+    )
       .update(
         `${serverOrderId}|${razorpay_payment_id}`
       )
@@ -484,7 +496,7 @@ export const verifyPaymentOrder_Service = async ({
   const isSignatureValid =
     generatedBuffer.length ===
       receivedBuffer.length &&
-    crypto.timingSafeEqual(
+    timingSafeEqual(
       generatedBuffer,
       receivedBuffer
     );
@@ -497,36 +509,27 @@ export const verifyPaymentOrder_Service = async ({
   }
 
   // ---------------------------------------
-  // FETCH PAYMENT FROM RAZORPAY
+  // FETCH PAYMENT DIRECTLY FROM RAZORPAY
   // ---------------------------------------
 
-  const razorpayPayment =
-    await razorpayInstance.payments.fetch(
-      razorpay_payment_id
+  let razorpayPayment;
+
+  try {
+    razorpayPayment =
+      await razorpayInstance.payments.fetch(
+        razorpay_payment_id
+      );
+  } catch (error) {
+    throw createError(
+      400,
+      "Unable to fetch payment details from Razorpay."
     );
+  }
 
   if (!razorpayPayment) {
     throw createError(
       400,
       "Unable to verify payment with Razorpay."
-    );
-  }
-
-  // Razorpay supports fetching a payment by
-  // its payment ID from the Payments API.
-  // ---------------------------------------
-
-  // ---------------------------------------
-  // VERIFY ORDER
-  // ---------------------------------------
-
-  if (
-    razorpayPayment.order_id !==
-    serverOrderId
-  ) {
-    throw createError(
-      400,
-      "Payment does not belong to this order."
     );
   }
 
@@ -545,7 +548,24 @@ export const verifyPaymentOrder_Service = async ({
   }
 
   // ---------------------------------------
+  // VERIFY ORDER ID
+  // ---------------------------------------
+
+  if (
+    razorpayPayment.order_id !==
+    serverOrderId
+  ) {
+    throw createError(
+      400,
+      "Payment does not belong to this order."
+    );
+  }
+
+  // ---------------------------------------
   // VERIFY AMOUNT
+  //
+  // MongoDB amount = rupees
+  // Razorpay amount = paise
   // ---------------------------------------
 
   const expectedAmountInPaise =
@@ -568,7 +588,8 @@ export const verifyPaymentOrder_Service = async ({
   // ---------------------------------------
 
   if (
-    razorpayPayment.currency !== "INR"
+    razorpayPayment.currency !==
+    payment.currency
   ) {
     throw createError(
       400,
@@ -577,7 +598,7 @@ export const verifyPaymentOrder_Service = async ({
   }
 
   // ---------------------------------------
-  // VERIFY CAPTURE STATUS
+  // VERIFY CAPTURE
   // ---------------------------------------
 
   if (
@@ -585,9 +606,29 @@ export const verifyPaymentOrder_Service = async ({
   ) {
     throw createError(
       400,
-      `Payment is not captured yet. Current status: ${razorpayPayment.status}`
+      `Payment is not captured. Current status: ${razorpayPayment.status}`
     );
   }
+
+  // ---------------------------------------
+  // CALCULATE ACTUAL RENTAL PERIOD
+  //
+  // Start rental AFTER payment succeeds.
+  // ---------------------------------------
+
+  const rentalStartDate =
+    new Date();
+
+  const rentalEndDate =
+    new Date(rentalStartDate);
+
+  rentalEndDate.setMonth(
+    rentalEndDate.getMonth() +
+      internalOrder.rentalDurationMonths
+  );
+
+  const paidAt =
+    new Date();
 
   // ---------------------------------------
   // DATABASE TRANSACTION
@@ -599,8 +640,6 @@ export const verifyPaymentOrder_Service = async ({
   try {
     session.startTransaction();
 
-    const paidAt = new Date();
-
     // ---------------------------------------
     // UPDATE PAYMENT
     // ---------------------------------------
@@ -608,7 +647,8 @@ export const verifyPaymentOrder_Service = async ({
     const updatedPayment =
       await paymentModel.findOneAndUpdate(
         {
-          _id: payment._id,
+          _id:
+            payment._id,
 
           status: {
             $ne: "SUCCESS",
@@ -627,17 +667,20 @@ export const verifyPaymentOrder_Service = async ({
               "SUCCESS",
 
             paidAt,
+
+            failureReason:
+              null,
           },
         },
 
         {
-          returnDocument: "after",
           session,
+          returnDocument: "after",
         }
       );
 
     // ---------------------------------------
-    // DUPLICATE VERIFY REQUEST
+    // ANOTHER REQUEST ALREADY VERIFIED IT
     // ---------------------------------------
 
     if (!updatedPayment) {
@@ -667,7 +710,7 @@ export const verifyPaymentOrder_Service = async ({
           razorpayPaymentId:
             existingPayment.razorpayPaymentId,
 
-          status:
+          paymentStatus:
             existingPayment.status,
         },
       };
@@ -675,6 +718,8 @@ export const verifyPaymentOrder_Service = async ({
 
     // ---------------------------------------
     // UPDATE INTERNAL ORDER
+    //
+    // Rental starts after payment success.
     // ---------------------------------------
 
     const updatedOrder =
@@ -685,19 +730,23 @@ export const verifyPaymentOrder_Service = async ({
           $set: {
             status:
               "PAYMENT_SUCCESS",
+
+            rentalStartDate,
+
+            rentalEndDate,
           },
         },
 
         {
-          returnDocument: "after",
           session,
+          returnDocument: "after",
         }
       );
 
     if (!updatedOrder) {
       throw createError(
-        404,
-        "Unable to update internal order."
+        500,
+        "Unable to update rental order."
       );
     }
 
@@ -725,11 +774,9 @@ export const verifyPaymentOrder_Service = async ({
             paymentId:
               updatedPayment._id,
 
-            rentalStartDate:
-              internalOrder.rentalStartDate,
+            rentalStartDate,
 
-            rentalEndDate:
-              internalOrder.rentalEndDate,
+            rentalEndDate,
 
             totalAmount:
               internalOrder.totalAmount,
@@ -742,7 +789,7 @@ export const verifyPaymentOrder_Service = async ({
               "SUCCESS",
 
             rentalStatus:
-              "UPCOMING",
+              "ACTIVE",
 
             razorpayOrderId:
               serverOrderId,
@@ -762,13 +809,13 @@ export const verifyPaymentOrder_Service = async ({
 
         {
           upsert: true,
-          returnDocument: "after",
           session,
+          returnDocument: "after",
         }
       );
 
     // ---------------------------------------
-    // COMMIT
+    // COMMIT EVERYTHING
     // ---------------------------------------
 
     await session.commitTransaction();
@@ -781,7 +828,7 @@ export const verifyPaymentOrder_Service = async ({
       success: true,
 
       message:
-        "Payment verified successfully.",
+        "Payment verified and rental activated successfully.",
 
       data: {
         orderId:
@@ -805,17 +852,26 @@ export const verifyPaymentOrder_Service = async ({
         currency:
           updatedPayment.currency,
 
+        duration:
+          updatedOrder.rentalDurationMonths,
+
+        durationUnit:
+          "MONTH",
+
+        rentalStartDate:
+          updatedOrder.rentalStartDate,
+
+        rentalEndDate:
+          updatedOrder.rentalEndDate,
+
         paymentStatus:
           updatedPayment.status,
 
         orderStatus:
           updatedOrder.status,
 
-        rentalStartDate:
-          internalOrder.rentalStartDate,
-
-        rentalEndDate:
-          internalOrder.rentalEndDate,
+        rentalStatus:
+          rentalHistory.rentalStatus,
       },
     };
   } catch (error) {
