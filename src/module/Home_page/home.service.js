@@ -469,9 +469,9 @@ export const addLimitedTimeOfferService = async ({
 export const getLimitedTimeOffersService = async () => {
   const limitedTimeOffers = await limitedTimeOfferModel
     .find({})
-    .sort({
-      createdAt: -1,
+    .sort({  
       rank: 1,
+  
     })
     .lean();
 
