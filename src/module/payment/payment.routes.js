@@ -1,5 +1,5 @@
 import express from "express";
-import { orderController, verifyPaymentController, getUserPaymentsController } from "./payment.controller.js";
+import { orderController, verifyPaymentController, getUserPaymentsController , getPaymentForadmin_Controller} from "./payment.controller.js";
 import { authenticate } from "../../middleware/auth.middleware.js";
 const router = express.Router();
 
@@ -11,6 +11,13 @@ router.get(
   "/my-payments",
   authenticate,
   getUserPaymentsController
+);
+
+
+router.get(
+  "/admin/payments",
+  authenticate,
+  getPaymentForadmin_Controller
 );
 
 export default router;

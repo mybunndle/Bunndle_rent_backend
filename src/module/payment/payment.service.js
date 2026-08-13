@@ -233,7 +233,6 @@ export const createPaymentOrder_Service = async ({
   }
 };
 
-
 export const verifyPaymentOrder_Service = async ({
   userId,
   razorpay_order_id,
@@ -644,7 +643,6 @@ export const verifyPaymentOrder_Service = async ({
   }
 };
 
-
 export const getUserPayments_Service = async ({
   userId,
   status1,
@@ -796,5 +794,149 @@ export const getUserPayments_Service = async ({
 
     data:
       payments,
+  };
+};
+
+export const getPaymentForadmin_Service = async ({
+  page = 1,
+  limit = 10,
+  status,
+}) => {
+  // ---------------------------------------
+  // PAGINATION VALIDATION
+  // ---------------------------------------
+
+  const currentPage = Number.parseInt(page, 10);
+  const perPage = Number.parseInt(limit, 10);
+
+  if (!Number.isInteger(currentPage) || currentPage < 1) {
+    throw createError(400, "Page must be a positive integer.");
+  }
+
+  if (!Number.isInteger(perPage) || perPage < 1) {
+    throw createError(400, "Limit must be a positive integer.");
+  }
+
+  const skip = (currentPage - 1) * perPage;
+
+  // ---------------------------------------
+  // FILTER
+  // ---------------------------------------
+
+  const filter = {};
+
+  if (status) {
+    filter.status = status.toUpperCase();
+  }
+
+  // ---------------------------------------
+  // GET PAYMENTS
+  // ---------------------------------------
+
+  const [payments, totalPayments] = await Promise.all([
+    paymentModel
+      .find(filter)
+      .populate({
+        path: "userId",
+        select: "name email phone profileImage",
+      })
+      .populate({
+        path: "assetId",
+        select: "assetName model brand price files",
+      })
+      .populate({
+        path: "orderId",
+        select:
+          "totalAmount rentalDurationMonths rentalStartDate rentalEndDate razorpayOrderId status",
+      })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(perPage)
+      .lean(),
+
+    paymentModel.countDocuments(filter),
+  ]);
+
+  // ---------------------------------------
+  // FORMAT RESPONSE
+  // ---------------------------------------
+
+  const formattedPayments = payments.map((payment) => ({
+    // PAYMENT DETAILS
+    paymentId: payment._id,
+    razorpayPaymentId: payment.razorpayPaymentId || null,
+    razorpayOrderId: payment.razorpayOrderId || null,
+
+    paymentDate:
+      payment.paidAt ||
+      payment.updatedAt ||
+      payment.createdAt,
+
+    amount: payment.amount,
+    currency: payment.currency,
+    status: payment.status,
+
+    // USER DETAILS
+    user: payment.userId
+      ? {
+          userId: payment.userId._id,
+          name: payment.userId.name,
+          email: payment.userId.email,
+          phone: payment.userId.phone,
+          profileImage: payment.userId.profileImage || null,
+        }
+      : null,
+
+    // ASSET DETAILS
+    asset: payment.assetId
+      ? {
+          assetId: payment.assetId._id,
+          assetName: payment.assetId.assetName,
+          brand: payment.assetId.brand,
+          model: payment.assetId.model,
+          price: payment.assetId.price,
+
+          // FIRST ASSET IMAGE
+          image: payment.assetId.files?.[0]?.url || null,
+
+          // ALL ASSET IMAGES (optional)
+          images: payment.assetId.files || [],
+        }
+      : null,
+
+    // ORDER DETAILS
+    order: payment.orderId
+      ? {
+          orderId: payment.orderId._id,
+          razorpayOrderId: payment.orderId.razorpayOrderId || null,
+          totalAmount: payment.orderId.totalAmount,
+          status: payment.orderId.status,
+          rentalDurationMonths:
+            payment.orderId.rentalDurationMonths,
+          rentalStartDate: payment.orderId.rentalStartDate,
+          rentalEndDate: payment.orderId.rentalEndDate,
+        }
+      : null,
+  }));
+
+  // ---------------------------------------
+  // PAGINATION
+  // ---------------------------------------
+
+  const totalPages = Math.ceil(totalPayments / perPage);
+
+  return {
+    data: formattedPayments,
+
+    pagination: {
+      currentPage,
+      paymentsPerPage: perPage,
+      totalPayments,
+      totalPages,
+      hasNextPage: currentPage < totalPages,
+      hasPreviousPage: currentPage > 1,
+      nextPage: currentPage < totalPages ? currentPage + 1 : null,
+      previousPage: currentPage > 1 ? currentPage - 1 : null,
+    },
   };
 };
