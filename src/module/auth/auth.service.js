@@ -338,7 +338,7 @@ export async function getUserProfile_Service(userId) {
   const user = await userModel
     .findById(userId)
     .select(
-      "name email phone dob type authProvider profileImage profileImageId kycStatus isKycVerified kycVerifiedAt createdAt updatedAt",
+      "name email phone countryCode country fullPhone dob type authProvider profileImage profileImageId kycStatus isKycVerified kycVerifiedAt createdAt updatedAt",
     )
     .lean();
 
