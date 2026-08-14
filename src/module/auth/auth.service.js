@@ -1605,17 +1605,43 @@ export const sendLoginOtpService = async (
   };
 };
 
-export const verifyLoginOtpService = async ({ phone, otp }) => {
-  const cleanPhone = normalizePhone(phone);
+export const verifyLoginOtpService = async ({
+  phone,
+  otp,
+}) => {
+  /* ==============================
+     CLEAN PHONE
+  ============================== */
+
+  // Same helper used in sendLoginOtpService
+  // +919876543210 -> 9876543210
+  // 919876543210  -> 9876543210
+  // 9876543210    -> 9876543210
+  const cleanPhone = cleanLoginPhone(phone);
+
   const cleanOtp = String(otp ?? "").trim();
 
+  /* ==============================
+     VALIDATE OTP
+  ============================== */
+
   if (!cleanOtp) {
-    throw createError(400, "OTP is required");
+    throw createError(
+      400,
+      "OTP is required",
+    );
   }
 
   if (!/^\d{6}$/.test(cleanOtp)) {
-    throw createError(400, "Please enter a valid 6-digit OTP");
+    throw createError(
+      400,
+      "Please enter a valid 6-digit OTP",
+    );
   }
+
+  /* ==============================
+     FIND OTP
+  ============================== */
 
   const otpRecord = await otpModel
     .findOne({
@@ -1627,26 +1653,61 @@ export const verifyLoginOtpService = async ({ phone, otp }) => {
     });
 
   if (!otpRecord) {
-    throw createError(400, "OTP not found. Please request a new OTP");
+    throw createError(
+      400,
+      "OTP not found. Please request a new OTP",
+    );
   }
 
-  if (new Date(otpRecord.expiresAt).getTime() <= Date.now()) {
+  /* ==============================
+     CHECK EXPIRY
+  ============================== */
+
+  if (
+    new Date(
+      otpRecord.expiresAt,
+    ).getTime() <= Date.now()
+  ) {
     await otpModel.deleteOne({
       _id: otpRecord._id,
     });
 
-    throw createError(400, "OTP has expired. Please request a new OTP");
+    throw createError(
+      400,
+      "OTP has expired. Please request a new OTP",
+    );
   }
 
-  if (String(otpRecord.otp) !== cleanOtp) {
-    throw createError(400, "Invalid OTP. Please try again");
+  /* ==============================
+     VERIFY OTP
+  ============================== */
+
+  if (
+    String(otpRecord.otp) !== cleanOtp
+  ) {
+    throw createError(
+      400,
+      "Invalid OTP. Please try again",
+    );
   }
 
-  const user = await findUserByPhone(cleanPhone);
+  /* ==============================
+     FIND USER
+  ============================== */
+
+  const user =
+    await findUserByPhone(cleanPhone);
 
   if (!user) {
-    throw createError(404, "No account found with this phone number");
+    throw createError(
+      404,
+      "No account found with this phone number",
+    );
   }
+
+  /* ==============================
+     BLOCKED USER CHECK
+  ============================== */
 
   if (user.isBlocked) {
     throw createError(
@@ -1655,16 +1716,56 @@ export const verifyLoginOtpService = async ({ phone, otp }) => {
     );
   }
 
-  // Successful verification ke baad OTP delete karo
+  /* ==============================
+     DELETE OTP
+  ============================== */
+
   await otpModel.deleteOne({
     _id: otpRecord._id,
   });
 
-  // Phone ka consistent format save karna ho to
+  /* ==============================
+     UPDATE OLD PHONE FORMAT
+  ============================== */
+
+  // Old DB values:
+  // +919876543210
+  // 919876543210
+  //
+  // Convert them into new structure:
+  // phone       -> 9876543210
+  // countryCode -> +91
+  // fullPhone   -> +919876543210
+
+  let shouldUpdateUser = false;
+
   if (user.phone !== cleanPhone) {
     user.phone = cleanPhone;
+    shouldUpdateUser = true;
+  }
+
+  if (!user.countryCode) {
+    user.countryCode = "+91";
+    shouldUpdateUser = true;
+  }
+
+  if (!user.country) {
+    user.country = "IN";
+    shouldUpdateUser = true;
+  }
+
+  if (!user.fullPhone) {
+    user.fullPhone = `+91${cleanPhone}`;
+    shouldUpdateUser = true;
+  }
+
+  if (shouldUpdateUser) {
     await user.save();
   }
+
+  /* ==============================
+     RETURN USER
+  ============================== */
 
   return user;
 };
