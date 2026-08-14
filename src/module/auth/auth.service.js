@@ -1440,56 +1440,146 @@ export async function createCorporateRequest_Service({
   };
 }
 
+const cleanLoginPhone = (phoneValue) => {
+  let phone = String(phoneValue ?? "")
+    .replace(/\D/g, "")
+    .trim();
+
+  // +91 / 91 remove
+  if (
+    phone.length === 12 &&
+    phone.startsWith("91")
+  ) {
+    phone = phone.slice(2);
+  }
+
+  // Optional leading 0 remove
+  if (
+    phone.length === 11 &&
+    phone.startsWith("0")
+  ) {
+    phone = phone.slice(1);
+  }
+
+  if (!/^[6-9]\d{9}$/.test(phone)) {
+    throw createError(
+      400,
+      "Please enter a valid 10-digit mobile number",
+    );
+  }
+
+  return phone;
+};
+
+
 const findUserByPhone = async (phone) => {
   return userModel.findOne({
-    phone: {
-      $in: [phone, `91${phone}`, `+91${phone}`],
-    },
+    $or: [
+      // Current / old phone field
+      {
+        phone: {
+          $in: [
+            phone,
+            `91${phone}`,
+            `+91${phone}`,
+          ],
+        },
+      },
+
+      // New international field
+      {
+        fullPhone: `+91${phone}`,
+      },
+    ],
   });
 };
 
-export const sendLoginOtpService = async (phoneValue) => {
-  const cleanPhone = normalizePhone(phoneValue);
 
-  const user = await findUserByPhone(cleanPhone);
+export const sendLoginOtpService = async (
+  phoneValue,
+) => {
+  /* ==============================
+     CLEAN PHONE
+  ============================== */
+
+  const cleanPhone =
+    cleanLoginPhone(phoneValue);
+
+  /* ==============================
+     FIND USER
+  ============================== */
+
+  const user =
+    await findUserByPhone(cleanPhone);
 
   if (!user) {
-    throw createError(404, "No account found with this phone number");
+    throw createError(
+      404,
+      "No account found with this phone number",
+    );
   }
 
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  /* ==============================
+     GENERATE OTP
+  ============================== */
 
-  const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
+  const otp = Math.floor(
+    100000 + Math.random() * 900000,
+  ).toString();
 
-  // Purani login OTP remove karo
+  const otpExpiresAt = new Date(
+    Date.now() + 5 * 60 * 1000,
+  );
+
+  /* ==============================
+     DELETE OLD OTP
+  ============================== */
+
   await otpModel.deleteMany({
     phone: cleanPhone,
     purpose: "LOGIN",
   });
 
-  // New OTP database mein save karo
-  const otpRecord = await otpModel.create({
-    phone: cleanPhone,
-    userId: user._id,
-    otp,
-    purpose: "LOGIN",
-    expiresAt: otpExpiresAt,
-    isVerified: false,
-  });
+  /* ==============================
+     CREATE OTP
+  ============================== */
 
-  const isRealSmsEnabled = process.env.USE_REAL_SMS === "true";
+  const otpRecord =
+    await otpModel.create({
+      phone: cleanPhone,
+
+      userId: user._id,
+
+      otp,
+
+      purpose: "LOGIN",
+
+      expiresAt:
+        otpExpiresAt,
+
+      isVerified: false,
+    });
+
+  const isRealSmsEnabled =
+    process.env.USE_REAL_SMS === "true";
+
+  /* ==============================
+     SEND OTP
+  ============================== */
 
   try {
     if (isRealSmsEnabled) {
       await sendOtpSms({
+        // 10 digit number only
         phone: cleanPhone,
         otp,
       });
     } else {
-      console.log(`Development login OTP for ${cleanPhone}: ${otp}`);
+      console.log(
+        `Development login OTP for ${cleanPhone}: ${otp}`,
+      );
     }
   } catch (error) {
-    // SMS fail ho to useless OTP record delete karo
     await otpModel.deleteOne({
       _id: otpRecord._id,
     });
@@ -1497,9 +1587,16 @@ export const sendLoginOtpService = async (phoneValue) => {
     throw error;
   }
 
+  /* ==============================
+     RESPONSE
+  ============================== */
+
   return {
     phone: cleanPhone,
-    expiresAt: otpExpiresAt,
+
+    expiresAt:
+      otpExpiresAt,
+
     ...(isRealSmsEnabled
       ? {}
       : {
