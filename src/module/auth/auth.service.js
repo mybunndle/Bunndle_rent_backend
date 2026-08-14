@@ -342,6 +342,7 @@ export async function getUserProfile_Service(userId) {
     )
     .lean();
 
+    
   if (!user) {
     throw createError(404, "User not found");
   }
