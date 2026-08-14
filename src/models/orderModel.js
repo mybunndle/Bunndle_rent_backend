@@ -38,10 +38,7 @@ const orderSchema = new mongoose.Schema(
       default: "INR",
       required: true,
     },
-
-    // ---------------------------------------
     // RENTAL DURATION
-    // ---------------------------------------
 
     // Example:
     // 1 = 1 month

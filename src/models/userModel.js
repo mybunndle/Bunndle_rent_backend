@@ -10,9 +10,35 @@ const userSchema = new mongoose.Schema(
 
     phone: {
       type: String,
-      unique: true,
-      sparse: true, // ⭐ allows multiple nulls
+      default: null,
       trim: true,
+    },
+
+    // Example:
+    // India => +91
+    // US    => +1
+    // UK    => +44
+    countryCode: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+
+   
+    country: {
+      type: String,
+      default: null,
+      uppercase: true,
+      trim: true,
+    },
+
+   
+    fullPhone: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+      default: null,
     },
 
     email: {
@@ -109,3 +135,5 @@ const userSchema = new mongoose.Schema(
 );
 
 export default mongoose.model("User", userSchema);
+
+

@@ -10,6 +10,7 @@ import { hashToken } from "../../utils/token.util.js";
 import { generateToken } from "../../utils/generate.token.js";
 import assetModel from "../../models/assetModel.js";
 import corporateRequestModel from "../../models/corporateRequestModel.js";
+import { normalizePhone } from "../../utils/phoneNormilise.js";
 
 import { sendOtpSms } from "./sms_service.js";
 import otpModel from "../../models/otpModel.js";
@@ -44,25 +45,6 @@ const normalizeEmail = (email) => {
     .toLowerCase();
 };
 
-const normalizePhone = (phoneValue) => {
-  let phone = String(phoneValue ?? "").replace(/\D/g, "");
-
-  // 91 country code remove karo
-  if (/^91[6-9]\d{9}$/.test(phone)) {
-    phone = phone.slice(2);
-  }
-
-  if (!/^[6-9]\d{9}$/.test(phone)) {
-    const error = new Error(
-      "Please enter a valid 10-digit Indian mobile number",
-    );
-    error.statusCode = 400;
-    throw error;
-  }
-
-  return phone;
-};
-
 /* =========================================================
    REGISTER USER
 ========================================================= */
@@ -70,10 +52,13 @@ const normalizePhone = (phoneValue) => {
 export async function registerUser_Service({ name, email, phone, password }) {
   const cleanName = String(name || "").trim();
   const cleanEmail = normalizeEmail(email);
-  const cleanPhone = normalizePhone(phone);
   const cleanPassword = String(password || "");
 
-  if (!cleanName || !cleanEmail || !cleanPhone || !cleanPassword) {
+  /* ==============================
+     BASIC VALIDATION
+  ============================== */
+
+  if (!cleanName || !cleanEmail || !phone || !cleanPassword) {
     throw createError(400, "Name, email, phone and password are required");
   }
 
@@ -81,64 +66,141 @@ export async function registerUser_Service({ name, email, phone, password }) {
     throw createError(400, "Name must be at least 2 characters");
   }
 
-  if (cleanPhone.length < 10) {
-    throw createError(400, "Phone number must be at least 10 digits");
-  }
-
   if (cleanPassword.length < 6) {
     throw createError(400, "Password must be at least 6 characters");
   }
 
+  /* ==============================
+     NORMALIZE PHONE
+  ============================== */
+
+  // Example input:
+  // +919876543210
+  // +14155552671
+  // +447911123456
+
+  const normalizedPhone = normalizePhone(phone);
+
+  /*
+    normalizedPhone = {
+      phone: "9876543210",
+      countryCode: "+91",
+      country: "IN",
+      fullPhone: "+919876543210"
+    }
+  */
+
+  /* ==============================
+     CHECK EXISTING USER
+  ============================== */
+
   const existingUser = await userModel
     .findOne({
-      $or: [{ email: cleanEmail }, { phone: cleanPhone }],
+      $or: [
+        {
+          email: cleanEmail,
+        },
+        {
+          fullPhone: normalizedPhone.fullPhone,
+        },
+      ],
     })
-    .select("email phone");
+    .select("email phone fullPhone countryCode country")
+    .lean();
 
   if (existingUser) {
     if (existingUser.email === cleanEmail) {
       throw createError(409, "Email already registered");
     }
 
-    if (existingUser.phone === cleanPhone) {
+    if (existingUser.fullPhone === normalizedPhone.fullPhone) {
       throw createError(409, "Phone number already registered");
     }
 
     throw createError(409, "User already exists");
   }
 
+  /* ==============================
+     HASH PASSWORD
+  ============================== */
+
   const hashedPassword = await bcrypt.hash(cleanPassword, 12);
+
+  /* ==============================
+     CREATE USER
+  ============================== */
 
   try {
     const user = await userModel.create({
       name: cleanName,
+
       email: cleanEmail,
-      phone: cleanPhone,
+
+      phone: normalizedPhone.phone,
+
+      countryCode: normalizedPhone.countryCode,
+
+      country: normalizedPhone.country,
+
+      fullPhone: normalizedPhone.fullPhone,
+
       password: hashedPassword,
+
+      authProvider: "local",
     });
+
+    /* ==============================
+       GENERATE JWT
+    ============================== */
 
     const token = generateToken(user);
 
+    /* ==============================
+       RESPONSE
+    ============================== */
+
     return {
       success: true,
+
       message: "User registered successfully",
+
       token,
+
       user: {
         id: user._id,
+
         name: user.name,
+
         email: user.email,
+
+        // National number
         phone: user.phone,
-        role: user.role,
+
+        // +91, +1, +44 etc.
+        countryCode: user.countryCode,
+
+        // IN, US, GB etc.
+        country: user.country,
+
+        // Complete international number
+        fullPhone: user.fullPhone,
+
+        type: user.type,
+
         createdAt: user.createdAt,
       },
     };
   } catch (error) {
+    /* ==============================
+       MONGODB UNIQUE ERROR
+    ============================== */
+
     if (error.code === 11000) {
       if (error.keyPattern?.email || error.keyValue?.email) {
         throw createError(409, "Email already registered");
       }
 
-      if (error.keyPattern?.phone || error.keyValue?.phone) {
+      if (error.keyPattern?.fullPhone || error.keyValue?.fullPhone) {
         throw createError(409, "Phone number already registered");
       }
 
