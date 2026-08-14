@@ -428,50 +428,233 @@ export const updateProfile_Service = async ({
   body = {},
   file = null,
 }) => {
+  // ---------------------------------------
+  // AUTHENTICATION CHECK
+  // ---------------------------------------
+
   if (!userId) {
-    throw createError(401, "Unauthorized user.");
+    throw createError(
+      401,
+      "Unauthorized user."
+    );
   }
 
-  const user = await userModel.findById(userId);
+  const user = await userModel
+  .findById(userId)
+  .select("+fullPhone");
+
 
   if (!user) {
-    throw createError(404, "User not found.");
+    throw createError(
+      404,
+      "User not found."
+    );
   }
 
-  const oldProfileImageId = user.profileImageId;
+  if (user.isBlocked) {
+    throw createError(
+      403,
+      "Your account is blocked."
+    );
+  }
+
+  const oldProfileImageId =
+    user.profileImageId;
 
   let uploadedProfile = null;
   let updateSuccessful = false;
   let hasUpdate = false;
 
   try {
-    // Update name
-    if (Object.prototype.hasOwnProperty.call(body, "name")) {
-      const name = String(body.name ?? "").trim();
+    // ---------------------------------------
+    // UPDATE NAME
+    // ---------------------------------------
+
+    if (
+      Object.prototype.hasOwnProperty.call(
+        body,
+        "name"
+      )
+    ) {
+      const name = String(
+        body.name ?? ""
+      ).trim();
 
       if (!name) {
-        throw createError(400, "Name cannot be empty.");
+        throw createError(
+          400,
+          "Name cannot be empty."
+        );
+      }
+
+      if (name.length < 2) {
+        throw createError(
+          400,
+          "Name must be at least 2 characters."
+        );
       }
 
       user.name = name;
       hasUpdate = true;
     }
 
-    // Update DOB
-    if (Object.prototype.hasOwnProperty.call(body, "dob")) {
+    // ---------------------------------------
+    // UPDATE EMAIL
+    // ---------------------------------------
+
+    if (
+      Object.prototype.hasOwnProperty.call(
+        body,
+        "email"
+      )
+    ) {
+      const normalizedEmail = String(
+        body.email ?? ""
+      )
+        .trim()
+        .toLowerCase();
+
+      if (!normalizedEmail) {
+        throw createError(
+          400,
+          "Email cannot be empty."
+        );
+      }
+
+      const emailRegex =
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+      if (
+        !emailRegex.test(
+          normalizedEmail
+        )
+      ) {
+        throw createError(
+          400,
+          "Please provide a valid email address."
+        );
+      }
+
+      const existingEmailUser =
+        await userModel
+          .findOne({
+            email: normalizedEmail,
+            _id: {
+              $ne: userId,
+            },
+          })
+          .select("_id")
+          .lean();
+
+      if (existingEmailUser) {
+        throw createError(
+          409,
+          "Email is already registered."
+        );
+      }
+
+      user.email = normalizedEmail;
+      hasUpdate = true;
+    }
+
+    // ---------------------------------------
+    // UPDATE PHONE
+    // ---------------------------------------
+
+    if (
+      Object.prototype.hasOwnProperty.call(
+        body,
+        "phone"
+      )
+    ) {
+      /*
+       * normalizePhone returns:
+       *
+       * {
+       *   phone: "9876543210",
+       *   countryCode: "+91",
+       *   country: "IN",
+       *   fullPhone: "+919876543210"
+       * }
+       */
+      const phoneData =
+        normalizePhone(body.phone);
+
+      const existingPhoneUser =
+        await userModel
+          .findOne({
+            fullPhone:
+              phoneData.fullPhone,
+
+            // Exclude logged-in user
+            _id: {
+              $ne: userId,
+            },
+          })
+          .select("_id")
+          .lean();
+
+      if (existingPhoneUser) {
+        throw createError(
+          409,
+          "Phone number is already registered."
+        );
+      }
+
+      user.phone =
+        phoneData.phone;
+
+      user.countryCode =
+        phoneData.countryCode;
+
+      user.phoneCountry =
+        phoneData.country;
+
+      user.fullPhone =
+        phoneData.fullPhone;
+
+      hasUpdate = true;
+    }
+
+    // ---------------------------------------
+    // UPDATE DOB
+    // ---------------------------------------
+
+    if (
+      Object.prototype.hasOwnProperty.call(
+        body,
+        "dob"
+      )
+    ) {
       const dobValue = body.dob;
 
-      if (dobValue === null || dobValue === "" || dobValue === "null") {
+      if (
+        dobValue === null ||
+        dobValue === "" ||
+        dobValue === "null"
+      ) {
         user.dob = null;
       } else {
-        const parsedDob = new Date(dobValue);
+        const parsedDob = new Date(
+          dobValue
+        );
 
-        if (Number.isNaN(parsedDob.getTime())) {
-          throw createError(400, "Invalid DOB. Use YYYY-MM-DD format.");
+        if (
+          Number.isNaN(
+            parsedDob.getTime()
+          )
+        ) {
+          throw createError(
+            400,
+            "Invalid DOB. Use YYYY-MM-DD format."
+          );
         }
 
         if (parsedDob > new Date()) {
-          throw createError(400, "Date of birth cannot be in the future.");
+          throw createError(
+            400,
+            "Date of birth cannot be in the future."
+          );
         }
 
         user.dob = parsedDob;
@@ -480,70 +663,156 @@ export const updateProfile_Service = async ({
       hasUpdate = true;
     }
 
-    // Upload new profile image
-    if (file) {
-      uploadedProfile = await uploadProfilePicture(file);
+    // ---------------------------------------
+    // UPLOAD NEW PROFILE IMAGE
+    // ---------------------------------------
 
-      if (!uploadedProfile?.url || !uploadedProfile?.fileId) {
-        throw createError(500, "Profile image upload failed.");
+    if (file) {
+      uploadedProfile =
+        await uploadProfilePicture(file);
+
+      if (
+        !uploadedProfile?.url ||
+        !uploadedProfile?.fileId
+      ) {
+        throw createError(
+          500,
+          "Profile image upload failed."
+        );
       }
 
-      // Schema fields are separate strings
-      user.profileImage = uploadedProfile.url;
-      user.profileImageId = uploadedProfile.fileId;
+      user.profileImage =
+        uploadedProfile.url;
+
+      user.profileImageId =
+        uploadedProfile.fileId;
 
       hasUpdate = true;
     }
 
+    // ---------------------------------------
+    // CHECK UPDATE DATA
+    // ---------------------------------------
+
     if (!hasUpdate) {
-      throw createError(400, "Please provide name, dob, or profile image.");
+      throw createError(
+        400,
+        "Please provide name, email, phone, dob, or profile image."
+      );
     }
 
-    // Save updated user
-    const updatedUser = await user.save();
+    // ---------------------------------------
+    // SAVE UPDATED USER
+    // ---------------------------------------
+
+    const updatedUser =
+      await user.save();
 
     updateSuccessful = true;
 
-    // Delete old image after successful database update
+    // ---------------------------------------
+    // DELETE PREVIOUS IMAGE
+    // ---------------------------------------
+
     if (
       uploadedProfile?.fileId &&
       oldProfileImageId &&
-      oldProfileImageId !== uploadedProfile.fileId
+      oldProfileImageId !==
+        uploadedProfile.fileId
     ) {
       try {
-        await deleteProfilePicture(oldProfileImageId);
+        await deleteProfilePicture(
+          oldProfileImageId
+        );
       } catch (deleteError) {
         console.error(
           "Old profile image deletion failed:",
-          deleteError.message,
+          deleteError.message
         );
       }
     }
 
-    // Convert Mongoose document into plain object
-    const userData = updatedUser.toObject({
-      versionKey: false,
-    });
+    // ---------------------------------------
+    // SAFE RESPONSE
+    // ---------------------------------------
 
-    // Clean DOB response: YYYY-MM-DD
+    const userData =
+      updatedUser.toObject({
+        versionKey: false,
+      });
+
     userData.dob = userData.dob
-      ? new Date(userData.dob).toISOString().split("T")[0]
+      ? new Date(userData.dob)
+          .toISOString()
+          .split("T")[0]
       : null;
 
-    // Remove sensitive fields
+    /*
+     * fullPhone is only used internally
+     * for duplicate checking.
+     */
+    
     delete userData.password;
     delete userData.resetOtpHash;
     delete userData.resetOtpExpiry;
+    delete userData.otp;
+    delete userData.otpExpiry;
+
+    userData.fullPhone =
+  userData.fullPhone ||
+  `${userData.countryCode || ""}${userData.phone || ""}`;
 
     return userData;
   } catch (error) {
-    // Delete newly uploaded image only when database update failed
-    if (uploadedProfile?.fileId && !updateSuccessful) {
+    // ---------------------------------------
+    // ROLLBACK NEW PROFILE IMAGE
+    // ---------------------------------------
+
+    if (
+      uploadedProfile?.fileId &&
+      !updateSuccessful
+    ) {
       try {
-        await deleteProfilePicture(uploadedProfile.fileId);
+        await deleteProfilePicture(
+          uploadedProfile.fileId
+        );
       } catch (rollbackError) {
-        console.error("Profile image rollback failed:", rollbackError.message);
+        console.error(
+          "Profile image rollback failed:",
+          rollbackError.message
+        );
       }
+    }
+
+    // ---------------------------------------
+    // DATABASE DUPLICATE ERROR
+    // ---------------------------------------
+
+    if (error?.code === 11000) {
+      if (
+        error.keyPattern?.fullPhone ||
+        error.keyValue?.fullPhone
+      ) {
+        throw createError(
+          409,
+          "Phone number is already registered."
+        );
+      }
+
+      if (
+        error.keyPattern?.email ||
+        error.keyValue?.email
+      ) {
+        throw createError(
+          409,
+          "Email is already registered."
+        );
+      }
+
+      throw createError(
+        409,
+        "These details are already registered."
+      );
     }
 
     throw error;
@@ -1153,8 +1422,7 @@ export const deleteAccountService = async ({
 
   // 3. User password ke saath find karo
   const user = await userModel
-    .findById(userId)
-    .select("+password name email phone authProvider profileImage");
+    .findById(userId);
 
   if (!user) {
     throw createError(404, "User account not found.");
