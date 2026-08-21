@@ -24,7 +24,6 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
-   
     country: {
       type: String,
       default: null,
@@ -32,13 +31,10 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
-   
     fullPhone: {
       type: String,
-      unique: true,
-      sparse: true,
       trim: true,
-      default: null,
+      default: undefined,
     },
 
     email: {
@@ -56,10 +52,10 @@ const userSchema = new mongoose.Schema(
         return this.authProvider === "local";
       },
     },
-    type:{
+    type: {
       type: String,
       enum: ["user", "admin"],
-      default: "user"
+      default: "user",
     },
 
     /* ===== AUTH ===== */
@@ -133,7 +129,15 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
+userSchema.index(
+  { fullPhone: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      fullPhone: { $type: "string" },
+    },
+  }
+);
+
 
 export default mongoose.model("User", userSchema);
-
-
