@@ -68,15 +68,24 @@ export const deleteAssetController = async (req, res) => {
 
 export const getAssetsController = async (req, res) => {
   try {
-    const page = req.query.page || 1;
+    const page = Number(req.query.page) || 1;
+    // optionalAuthenticate will set req.user
+    // Guest => req.user = null
+    // Logged user => req.user = user object
+    const userId = req.user?._id || null;
 
     const result = await getAssetsService({
       page,
+      userId,
     });
 
     return res.status(200).json({
       success: true,
       message: "Assets fetched successfully.",
+
+      // Helpful for Flutter
+      isGuest: !userId,
+
       count: result.assets.length,
       data: result.assets,
       pagination: result.pagination,

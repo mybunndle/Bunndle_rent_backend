@@ -1,5 +1,5 @@
 import express from "express";
-import { authenticate } from "../../middleware/auth.middleware.js";
+import { authenticate ,optionalAuthenticate} from "../../middleware/auth.middleware.js";
 import { uploadAssetImages } from "../../middleware/upload.js";
 import {
   addAssetController,
@@ -13,6 +13,7 @@ import {
   getAssetsWith_wishlist_Controller,
 } from "./asset.controller.js";
 
+
 const router = express.Router();
 
 router.post(
@@ -21,7 +22,7 @@ router.post(
   uploadAssetImages.array("files", 5),
   addAssetController,
 );
-router.get("/get_assets", authenticate, getAssetsController);
+router.get("/get_assets", optionalAuthenticate, getAssetsController);
 
 router.patch(
   "/edit_asset/:id",
@@ -46,19 +47,19 @@ router.get("/check/:assetId", authenticate, checkWishlist_Controller);
 
 router.get(
   "/get_assets_with_wishlist/:category/:subCategory",
-  authenticate,
+  optionalAuthenticate,
   getAssetsWith_wishlist_Controller
 );
 
 router.get(
   "/get_assets_with_wishlist/:category",
-  authenticate,
+  optionalAuthenticate,
   getAssetsWith_wishlist_Controller
 );
 
 router.get(
   "/get_assets_with_wishlist",
-  authenticate,
+  optionalAuthenticate,
   getAssetsWith_wishlist_Controller
 );
 

@@ -131,6 +131,67 @@ export const login = async (req, res) => {
       });
   }
 };
+// export const getCurrentUser = async (
+//   req,
+//   res,
+//   next
+// ) => {
+//   try {
+//     const userId =
+//       req.user?._id ||
+//       req.user?.id ||
+//       req.user?.userId;
+
+//     const result = await getUserProfile_Service(userId);
+
+//     const formatDOB = (dob) => {
+//       if (!dob) {
+//         return null;
+//       }
+
+//       // Agar DOB already DD-MM-YYYY format mein hai
+//       if (
+//         typeof dob === "string" &&
+//         /^\d{2}-\d{2}-\d{4}$/.test(dob)
+//       ) {
+//         return dob;
+//       }
+
+//       const parsedDate = new Date(dob);
+
+//       if (Number.isNaN(parsedDate.getTime())) {
+//         return null;
+//       }
+
+//       const day = String(
+//         parsedDate.getUTCDate()
+//       ).padStart(2, "0");
+
+//       const month = String(
+//         parsedDate.getUTCMonth() + 1
+//       ).padStart(2, "0");
+
+//       const year = parsedDate.getUTCFullYear();
+
+//       return `${day}-${month}-${year}`;
+//     };
+
+//     const userData = {
+//       ...result.data,
+//       dob: formatDOB(result.data?.dob),
+//     };
+
+//     return res.status(200).json({
+//       success: true,
+//       message: result.message,
+//       data: userData,
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
+
 export const getCurrentUser = async (
   req,
   res,
@@ -140,16 +201,36 @@ export const getCurrentUser = async (
     const userId =
       req.user?._id ||
       req.user?.id ||
-      req.user?.userId;
+      req.user?.userId ||
+      null;
 
-    const result = await getUserProfile_Service(userId);
+    // =====================================
+    // GUEST USER
+    // =====================================
+
+    if (!userId) {
+      return res.status(200).json({
+        success: true,
+        message: "Guest user.",
+        isGuest: true,
+        isAuthenticated: false,
+        data: null,
+      });
+    }
+
+    // =====================================
+    // LOGGED-IN USER
+    // =====================================
+
+    const result =
+      await getUserProfile_Service(userId);
 
     const formatDOB = (dob) => {
       if (!dob) {
         return null;
       }
 
-      // Agar DOB already DD-MM-YYYY format mein hai
+      // Already DD-MM-YYYY
       if (
         typeof dob === "string" &&
         /^\d{2}-\d{2}-\d{4}$/.test(dob)
@@ -159,7 +240,9 @@ export const getCurrentUser = async (
 
       const parsedDate = new Date(dob);
 
-      if (Number.isNaN(parsedDate.getTime())) {
+      if (
+        Number.isNaN(parsedDate.getTime())
+      ) {
         return null;
       }
 
@@ -171,7 +254,8 @@ export const getCurrentUser = async (
         parsedDate.getUTCMonth() + 1
       ).padStart(2, "0");
 
-      const year = parsedDate.getUTCFullYear();
+      const year =
+        parsedDate.getUTCFullYear();
 
       return `${day}-${month}-${year}`;
     };
@@ -184,8 +268,11 @@ export const getCurrentUser = async (
     return res.status(200).json({
       success: true,
       message: result.message,
+      isGuest: false,
+      isAuthenticated: true,
       data: userData,
     });
+
   } catch (error) {
     next(error);
   }

@@ -330,25 +330,94 @@ export const loginUser_Service = async ({ email, password }) => {
    GET USER PROFILE
 ========================================================= */
 
+// export async function getUserProfile_Service(userId) {
+//   if (!userId) {
+//     throw createError(400, "User ID is required");
+//   }
+
+//   const user = await userModel
+//     .findById(userId)
+//     .select(
+//       "name email phone countryCode country fullPhone dob type authProvider profileImage profileImageId kycStatus isKycVerified kycVerifiedAt createdAt updatedAt",
+//     )
+//     .lean();
+
+    
+//   if (!user) {
+//     throw createError(404, "User not found");
+//   }
+
+//   const formatDate = (date) => {
+//     if (!date) return null;
+
+//     const parsedDate = new Date(date);
+
+//     if (Number.isNaN(parsedDate.getTime())) {
+//       return null;
+//     }
+
+//     const day = String(parsedDate.getUTCDate()).padStart(2, "0");
+//     const month = String(parsedDate.getUTCMonth() + 1).padStart(2, "0");
+//     const year = parsedDate.getUTCFullYear();
+
+//     return `${day}-${month}-${year}`;
+//   };
+
+//   user.dob = formatDate(user.dob);
+//   user.kycVerifiedAt = formatDate(user.kycVerifiedAt);
+//   user.createdAt = formatDate(user.createdAt);
+//   user.updatedAt = formatDate(user.updatedAt);
+
+//   return {
+//     success: true,
+//     message: "User profile fetched successfully",
+//     data: user,
+//   };
+// }
+
 export async function getUserProfile_Service(userId) {
+  // ==========================================
+  // GUEST USER
+  // ==========================================
   if (!userId) {
-    throw createError(400, "User ID is required");
+    return {
+      success: true,
+      message: "Guest user",
+      isGuest: true,
+      isAuthenticated: false,
+      data: null,
+    };
   }
 
+  // ==========================================
+  // LOGGED-IN USER
+  // ==========================================
   const user = await userModel
     .findById(userId)
     .select(
-      "name email phone countryCode country fullPhone dob type authProvider profileImage profileImageId kycStatus isKycVerified kycVerifiedAt createdAt updatedAt",
+      "name email phone countryCode country fullPhone dob type authProvider profileImage profileImageId kycStatus isKycVerified kycVerifiedAt createdAt updatedAt"
     )
     .lean();
 
-    
   if (!user) {
     throw createError(404, "User not found");
   }
 
+  // ==========================================
+  // FORMAT DATE
+  // ==========================================
   const formatDate = (date) => {
-    if (!date) return null;
+    if (!date) {
+      return null;
+    }
+
+    // Already DD-MM-YYYY
+    if (
+      typeof date === "string" &&
+      /^\d{2}-\d{2}-\d{4}$/.test(date)
+    ) {
+      return date;
+    }
 
     const parsedDate = new Date(date);
 
@@ -356,24 +425,43 @@ export async function getUserProfile_Service(userId) {
       return null;
     }
 
-    const day = String(parsedDate.getUTCDate()).padStart(2, "0");
-    const month = String(parsedDate.getUTCMonth() + 1).padStart(2, "0");
-    const year = parsedDate.getUTCFullYear();
+    const day = String(
+      parsedDate.getUTCDate()
+    ).padStart(2, "0");
+
+    const month = String(
+      parsedDate.getUTCMonth() + 1
+    ).padStart(2, "0");
+
+    const year =
+      parsedDate.getUTCFullYear();
 
     return `${day}-${month}-${year}`;
   };
 
   user.dob = formatDate(user.dob);
-  user.kycVerifiedAt = formatDate(user.kycVerifiedAt);
-  user.createdAt = formatDate(user.createdAt);
-  user.updatedAt = formatDate(user.updatedAt);
+
+  user.kycVerifiedAt = formatDate(
+    user.kycVerifiedAt
+  );
+
+  user.createdAt = formatDate(
+    user.createdAt
+  );
+
+  user.updatedAt = formatDate(
+    user.updatedAt
+  );
 
   return {
     success: true,
     message: "User profile fetched successfully",
+    isGuest: false,
+    isAuthenticated: true,
     data: user,
   };
 }
+
 
 /* =========================================================
    CHANGE PASSWORD

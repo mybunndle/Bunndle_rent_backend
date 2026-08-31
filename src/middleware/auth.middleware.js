@@ -125,7 +125,7 @@ export const authenticate = async (req, res, next) => {
     ) {
       return res.status(401).json({
         success: false,
-        message: "Access token is required.",
+        message: "Session expired please login.",
       });
     }
 
@@ -212,7 +212,7 @@ export const authenticate = async (req, res, next) => {
     if (error.name === "JsonWebTokenError") {
       return res.status(401).json({
         success: false,
-        message: "Invalid access token.",
+        message: "Session expired. Please login/register again.",
       });
     }
 
@@ -220,7 +220,82 @@ export const authenticate = async (req, res, next) => {
 
     return res.status(500).json({
       success: false,
-      message: "Unable to authenticate user.",
+      message:"Unable to authenticate user. Please log in again.",
     });
+  }
+};
+
+export const optionalAuthenticate = async (
+  req,
+  res,
+  next
+) => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    // CASE 1: No token => GUEST
+    if (
+      !authHeader ||
+      !authHeader.startsWith("Bearer ")
+    ) {
+      req.user = null;
+      req.isGuest = true;
+
+      return next();
+    }
+
+    // CASE 2: Token available => verify user
+    const token = authHeader
+      .slice(7)
+      .trim();
+
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
+
+    const userId =
+      decoded?._id ||
+      decoded?.id ||
+      decoded?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Session expired. Please login again.",
+      });
+    }
+
+    const user = await userModel.findById(userId);
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    // Logged-in user
+    req.user = user;
+    req.isGuest = false;
+
+    return next();
+
+  } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({
+        success: false,
+        message: "Access token expired.",
+      });
+    }
+
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({
+        success: false,
+        message: "Session expired. Please login again.",
+      });
+    }
+
+    return next(error);
   }
 };
