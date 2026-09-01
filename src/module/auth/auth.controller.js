@@ -934,6 +934,7 @@ export const verifyLoginOtp = async (req, res) => {
     });
 
     const token = generateToken(user);
+    console.log("Generated token:", token);
 
     return res.status(200).json({
       success: true,
