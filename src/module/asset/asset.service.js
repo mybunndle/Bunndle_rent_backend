@@ -99,42 +99,55 @@ export const addAssetService = async ({ userId, body = {}, files = [] }) => {
 
 const ASSETS_PER_PAGE = 10;
 
-export const getAssetsService = async ({ page = 1 }) => {
-  const currentPage = Number.parseInt(page, 10);
+// export const getAssetsService = async ({ page = 1 }) => {
+//   const currentPage = Number.parseInt(page, 10);
 
-  if (!Number.isInteger(currentPage) || currentPage < 1) {
-    throw createError(400, "Page must be a positive integer.");
-  }
+//   if (!Number.isInteger(currentPage) || currentPage < 1) {
+//     throw createError(400, "Page must be a positive integer.");
+//   }
 
-  const skip = (currentPage - 1) * ASSETS_PER_PAGE;
+//   const skip = (currentPage - 1) * ASSETS_PER_PAGE;
 
-  const [assets, totalAssets] = await Promise.all([
-    assetModel
-      .find({})
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(ASSETS_PER_PAGE)
-      .lean(),
+//   const [assets, totalAssets] = await Promise.all([
+//     assetModel
+//       .find({})
+//       .sort({ createdAt: -1 })
+//       .skip(skip)
+//       .limit(ASSETS_PER_PAGE)
+//       .lean(),
 
-    assetModel.countDocuments({}),
-  ]);
+//     assetModel.countDocuments({}),
+//   ]);
 
-  const totalPages = Math.ceil(totalAssets / ASSETS_PER_PAGE);
+//   const totalPages = Math.ceil(totalAssets / ASSETS_PER_PAGE);
+
+//   return {
+//     assets,
+//     pagination: {
+//       currentPage,
+//       assetsPerPage: ASSETS_PER_PAGE,
+//       totalAssets,
+//       totalPages,
+//       hasNextPage: currentPage < totalPages,
+//       hasPreviousPage: currentPage > 1,
+//       nextPage: currentPage < totalPages ? currentPage + 1 : null,
+//       previousPage: currentPage > 1 ? currentPage - 1 : null,
+//     },
+//   };
+// };
+
+
+export const getAssetsService = async () => {
+  const assets = await assetModel
+    .find({})
+    .sort({ createdAt: -1 })
+    .lean();
 
   return {
     assets,
-    pagination: {
-      currentPage,
-      assetsPerPage: ASSETS_PER_PAGE,
-      totalAssets,
-      totalPages,
-      hasNextPage: currentPage < totalPages,
-      hasPreviousPage: currentPage > 1,
-      nextPage: currentPage < totalPages ? currentPage + 1 : null,
-      previousPage: currentPage > 1 ? currentPage - 1 : null,
-    },
   };
 };
+
 
 export const editAssetService = async ({
   assetId,
