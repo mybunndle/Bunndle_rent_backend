@@ -66,16 +66,48 @@ export const deleteAssetController = async (req, res) => {
   }
 };
 
+// export const getAssetsController = async (req, res) => {
+//   try {
+//     const page = Number(req.query.page) || 1;
+//     // optionalAuthenticate will set req.user
+//     // Guest => req.user = null
+//     // Logged user => req.user = user object
+//     const userId = req.user?._id || null;
+
+//     const result = await getAssetsService({
+//       page,
+//       userId,
+//     });
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Assets fetched successfully.",
+
+//       // Helpful for Flutter
+//       isGuest: !userId,
+
+//       count: result.assets.length,
+//       data: result.assets,
+//       pagination: result.pagination,
+//     });
+//   } catch (error) {
+//     console.error("GET ASSETS ERROR:", error);
+
+//     return res.status(error.statusCode || 500).json({
+//       success: false,
+//       message: error.message || "Unable to fetch assets.",
+//     });
+//   }
+// };
+
 export const getAssetsController = async (req, res) => {
   try {
-    const page = Number(req.query.page) || 1;
     // optionalAuthenticate will set req.user
     // Guest => req.user = null
     // Logged user => req.user = user object
     const userId = req.user?._id || null;
 
     const result = await getAssetsService({
-      page,
       userId,
     });
 
@@ -88,7 +120,6 @@ export const getAssetsController = async (req, res) => {
 
       count: result.assets.length,
       data: result.assets,
-      pagination: result.pagination,
     });
   } catch (error) {
     console.error("GET ASSETS ERROR:", error);
@@ -99,6 +130,7 @@ export const getAssetsController = async (req, res) => {
     });
   }
 };
+
 
 export const editAssetController = async (req, res) => {
   try {
