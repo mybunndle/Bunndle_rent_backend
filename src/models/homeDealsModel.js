@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 
 const homeDealsSchema = new mongoose.Schema(
   {
-    
     images: [
       {
         url: {
@@ -27,12 +26,9 @@ const homeDealsSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
-const homeDealsModel = mongoose.model(
-  "HomeDeal",
-  homeDealsSchema
-);
+const homeDealsModel = mongoose.model("HomeDeal", homeDealsSchema);
 
 export default homeDealsModel;

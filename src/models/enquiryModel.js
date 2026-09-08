@@ -1,4 +1,3 @@
-
 import mongoose from "mongoose";
 
 const adminRemarkSchema = new mongoose.Schema(
@@ -27,7 +26,7 @@ const adminRemarkSchema = new mongoose.Schema(
   },
   {
     _id: true,
-  }
+  },
 );
 
 const assetEnquirySchema = new mongoose.Schema(
@@ -59,7 +58,7 @@ const assetEnquirySchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // ✅ Prevent duplicate enquiry by same user on same asset
@@ -70,7 +69,7 @@ assetEnquirySchema.index(
   },
   {
     unique: true,
-  }
+  },
 );
 
 export default mongoose.model("AssetEnquiry", assetEnquirySchema);

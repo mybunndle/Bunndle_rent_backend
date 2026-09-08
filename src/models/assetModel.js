@@ -8,7 +8,7 @@ const assetFileSchema = new mongoose.Schema(
   },
   {
     _id: false,
-  }
+  },
 );
 const assetSchema = new mongoose.Schema(
   {
@@ -16,7 +16,6 @@ const assetSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-    
     },
 
     model: {
@@ -44,7 +43,6 @@ const assetSchema = new mongoose.Schema(
 
     subCategory: {
       type: String,
-      
     },
 
     purchaseYear: {
@@ -54,12 +52,7 @@ const assetSchema = new mongoose.Schema(
 
     isapproved: {
       type: String,
-      enum: [
-        "approved",
-        "rejected",
-        "pending",
-        "approvedButNotInApp",
-      ],
+      enum: ["approved", "rejected", "pending", "approvedButNotInApp"],
       default: "pending",
     },
 
@@ -76,7 +69,7 @@ const assetSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 export default mongoose.model("Asset", assetSchema);
