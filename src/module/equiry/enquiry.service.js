@@ -98,11 +98,7 @@ const validateObjectId = (id, fieldName) => {
 //   };
 // };
 
-
-export const toggleEnquiry_Service = async ({
-  assetId,
-  userId,
-}) => {
+export const toggleEnquiry_Service = async ({ assetId, userId }) => {
   validateObjectId(assetId, "Asset ID");
   validateObjectId(userId, "User ID");
 
@@ -142,28 +138,24 @@ export const toggleEnquiry_Service = async ({
   }
 
   // Toggle active/removed
-  const newStatus =
-    existingEnquiry.status === "active"
-      ? "removed"
-      : "active";
+  const newStatus = existingEnquiry.status === "active" ? "removed" : "active";
 
-  const updatedEnquiry =
-    await enquiryModel
-      .findByIdAndUpdate(
-        existingEnquiry._id,
-        {
-          $set: {
-            status: newStatus,
-          },
+  const updatedEnquiry = await enquiryModel
+    .findByIdAndUpdate(
+      existingEnquiry._id,
+      {
+        $set: {
+          status: newStatus,
         },
-        {
-          returnDocument: "after",
-          runValidators: true,
-        }
-      )
-      .populate("assetId")
-      .populate("userId", "name email phone")
-      .lean();
+      },
+      {
+        returnDocument: "after",
+        runValidators: true,
+      },
+    )
+    .populate("assetId")
+    .populate("userId", "name email phone")
+    .lean();
 
   const isActive = newStatus === "active";
 
@@ -177,13 +169,10 @@ export const toggleEnquiry_Service = async ({
   };
 };
 
-
 /**
  * Get logged-in user's active enquired assets.
  */
-export const getMyEnquiredAssets_Service = async (
-  userId,
-) => {
+export const getMyEnquiredAssets_Service = async (userId) => {
   validateObjectId(userId, "User ID");
 
   const enquiries = await enquiryModel
@@ -227,10 +216,7 @@ export const getMyEnquiredAssets_Service = async (
  */
 export const getAllEnquiries_Service = async () => {
   const assets = await AssetModel.find()
-    .populate(
-      "userId",
-      "name email phone profileImage",
-    )
+    .populate("userId", "name email phone profileImage")
     .sort({
       createdAt: -1,
     })
@@ -253,14 +239,8 @@ export const getAllEnquiries_Service = async () => {
       },
       status: "active",
     })
-    .populate(
-      "userId",
-      "name email phone profileImage",
-    )
-    .populate(
-      "adminRemarks.updatedBy",
-      "name email phone role",
-    )
+    .populate("userId", "name email phone profileImage")
+    .populate("adminRemarks.updatedBy", "name email phone role")
     .sort({
       createdAt: -1,
     })
@@ -282,47 +262,47 @@ export const getAllEnquiries_Service = async () => {
       status: enquiry.status,
       user: enquiry.userId,
 
-      adminRemarks: enquiry.adminRemarks.map(
-        (remarkItem) => ({
-          remarkId: remarkItem._id,
-          remark: remarkItem.remark,
-          updatedBy: remarkItem.updatedBy,
-          updatedByName: remarkItem.updatedByName,
-          updatedAt: remarkItem.updatedAt,
-        }),
-      ),
+      adminRemarks: enquiry.adminRemarks.map((remarkItem) => ({
+        remarkId: remarkItem._id,
+        remark: remarkItem.remark,
+        updatedBy: remarkItem.updatedBy,
+        updatedByName: remarkItem.updatedByName,
+        updatedAt: remarkItem.updatedAt,
+      })),
 
       createdAt: enquiry.createdAt,
       updatedAt: enquiry.updatedAt,
     });
   });
 
-  const assetsWithEnquiries = assets.map((asset) => {
-    const assetEnquiries =
-      enquiryMap.get(asset._id.toString()) || [];
+  const assetsWithEnquiries = assets
+    .map((asset) => {
+      const assetEnquiries =
+        enquiryMap.get(asset._id.toString()) || [];
 
-    return {
-      assetId: asset._id,
-      assetName: asset.assetName,
-      model: asset.model,
-      brand: asset.brand,
-      category: asset.category,
-      subCategory: asset.subCategory,
-      price: asset.price,
-      purchaseYear: asset.purchaseYear,
-      isapproved: asset.isapproved,
+      return {
+        assetId: asset._id,
+        assetName: asset.assetName,
+        model: asset.model,
+        brand: asset.brand,
+        category: asset.category,
+        subCategory: asset.subCategory,
+        price: asset.price,
+        purchaseYear: asset.purchaseYear,
+        isapproved: asset.isapproved,
 
-      // According to your asset schema
-      assetFiles: asset.assetFiles || [],
+        assetFiles: asset.assetFiles || [],
 
-      assetOwner: asset.userId,
-      totalEnquiries: assetEnquiries.length,
-      enquiries: assetEnquiries,
+        assetOwner: asset.userId,
+        totalEnquiries: assetEnquiries.length,
+        enquiries: assetEnquiries,
 
-      createdAt: asset.createdAt,
-      updatedAt: asset.updatedAt,
-    };
-  });
+        createdAt: asset.createdAt,
+        updatedAt: asset.updatedAt,
+      };
+    })
+    // ✅ Only assets having at least 1 active enquiry
+    .filter((asset) => asset.totalEnquiries > 0);
 
   return {
     totalAssets: assetsWithEnquiries.length,
@@ -330,13 +310,10 @@ export const getAllEnquiries_Service = async () => {
     data: assetsWithEnquiries,
   };
 };
-
 /**
  * Get active enquired asset IDs of logged-in user.
  */
-export const getMyEnquiryAssetIds_Service = async (
-  userId,
-) => {
+export const getMyEnquiryAssetIds_Service = async (userId) => {
   validateObjectId(userId, "User ID");
 
   const enquiries = await enquiryModel
@@ -350,9 +327,7 @@ export const getMyEnquiryAssetIds_Service = async (
     })
     .lean();
 
-  const assetIds = enquiries
-    .map((item) => item.assetId)
-    .filter(Boolean);
+  const assetIds = enquiries.map((item) => item.assetId).filter(Boolean);
 
   return {
     total: assetIds.length,
@@ -372,29 +347,17 @@ export const addAdminRemark_Service = async ({
   validateObjectId(adminId, "Admin ID");
 
   if (!remark || !remark.trim()) {
-    throw createError(
-      400,
-      "Admin remark is required."
-    );
+    throw createError(400, "Admin remark is required.");
   }
 
-  const admin = await userModel
-    .findById(adminId)
-    .select("name type")
-    .lean();
+  const admin = await userModel.findById(adminId).select("name type").lean();
 
   if (!admin) {
-    throw createError(
-      404,
-      "Admin account not found."
-    );
+    throw createError(404, "Admin account not found.");
   }
 
   if (admin.type !== "ADMIN") {
-    throw createError(
-      403,
-      "Only an admin can add remarks."
-    );
+    throw createError(403, "Only an admin can add remarks.");
   }
 
   const enquiry = await enquiryModel
@@ -413,22 +376,13 @@ export const addAdminRemark_Service = async ({
       {
         returnDocument: "after",
         runValidators: true,
-      }
+      },
     )
-    .populate(
-      "userId",
-      "name email phone profileImage type"
-    )
-    .populate(
-      "adminRemarks.updatedBy",
-      "name email phone type profileImage"
-    );
+    .populate("userId", "name email phone profileImage type")
+    .populate("adminRemarks.updatedBy", "name email phone type profileImage");
 
   if (!enquiry) {
-    throw createError(
-      404,
-      "Enquiry not found."
-    );
+    throw createError(404, "Enquiry not found.");
   }
 
   return enquiry;
