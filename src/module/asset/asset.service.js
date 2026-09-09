@@ -21,13 +21,99 @@ const cleanValue = (value) => {
   return stringValue || undefined;
 };
 
-export const addAssetService = async ({ userId, body = {}, files = [] }) => {
-  // 1. Check authentication
+// export const addAssetService = async ({ userId, body = {}, files = [] }) => {
+//   // 1. Check authentication
+//   if (!userId) {
+//     throw createError(401, "Unauthorized user.");
+//   }
+
+//   // 2. Clean request values
+//   const model = cleanValue(body.model);
+//   const brand = cleanValue(body.brand);
+//   const category = cleanValue(body.category);
+//   const subCategory = cleanValue(body.subCategory);
+//   const assetName = cleanValue(body.assetName);
+//   const purchaseYear = cleanValue(body.purchaseYear);
+//   const price = cleanValue(body.price);
+
+//   // 3. Validate required fields
+//   if (!model || !category || !purchaseYear) {
+//     throw createError(400, "Model, category, and purchase year are required.");
+//   }
+
+//   // 4. Validate uploaded files
+//   if (!Array.isArray(files) || files.length === 0) {
+//     throw createError(400, "At least 1 asset image is required.");
+//   }
+
+//   // 5. Check whether user exists
+//   const user = await userModel.findById(userId).select("_id name email");
+
+//   if (!user) {
+//     throw createError(404, "User not found.");
+//   }
+
+//   let uploadedFiles = [];
+
+//   try {
+//     // 6. Upload all asset images
+//     uploadedFiles = await Promise.all(
+//       files.map((file) => uploadAssetFile(file)),
+//     );
+
+//     // 7. Create asset in MongoDB
+//     const asset = await assetModel.create({
+//       userId: user._id,
+//       model,
+//       brand,
+//       category,
+//       subCategory,
+//       assetName,
+//       purchaseYear,
+//       price,
+//       files: uploadedFiles,
+//     });
+
+//     return {
+//       success: true,
+//       message: "Asset added successfully.",
+//       asset,
+//     };
+//   } catch (error) {
+//     // Uploaded images delete karo agar database save fail ho jaye
+//     if (uploadedFiles.length > 0) {
+//       await Promise.allSettled(
+//         uploadedFiles.map(async (file) => {
+//           const fileId = file.fileId || file.publicId || file.public_id;
+
+//           if (fileId) {
+//             await deleteAssetFile(fileId);
+//           }
+//         }),
+//       );
+//     }
+
+//     throw error;
+//   }
+// };
+
+export const addAssetService = async ({
+  userId,
+  body = {},
+  files = [],
+}) => {
+  // ---------------------------------------
+  // 1. CHECK AUTHENTICATION
+  // ---------------------------------------
+
   if (!userId) {
     throw createError(401, "Unauthorized user.");
   }
 
-  // 2. Clean request values
+  // ---------------------------------------
+  // 2. CLEAN BASIC VALUES
+  // ---------------------------------------
+
   const model = cleanValue(body.model);
   const brand = cleanValue(body.brand);
   const category = cleanValue(body.category);
@@ -36,18 +122,130 @@ export const addAssetService = async ({ userId, body = {}, files = [] }) => {
   const purchaseYear = cleanValue(body.purchaseYear);
   const price = cleanValue(body.price);
 
-  // 3. Validate required fields
-  if (!model || !category || !purchaseYear) {
-    throw createError(400, "Model, category, and purchase year are required.");
+  // ---------------------------------------
+  // 3. PARSE RENTAL PRICING
+  // ---------------------------------------
+
+  let rentalPricingObject = {};
+
+  if (typeof body.rentalPricing === "string") {
+    try {
+      rentalPricingObject = JSON.parse(body.rentalPricing);
+    } catch {
+      rentalPricingObject = {};
+    }
+  } else if (
+    body.rentalPricing &&
+    typeof body.rentalPricing === "object"
+  ) {
+    rentalPricingObject = body.rentalPricing;
   }
 
-  // 4. Validate uploaded files
+  // ---------------------------------------
+  // SUPPORT MULTIPLE FORM-DATA FORMATS
+  // ---------------------------------------
+
+  const zeroToThreeRaw =
+    rentalPricingObject.zeroToThreeMonths ??
+    body["rentalPricing.zeroToThreeMonths"] ??
+    body["rentalPricing[zeroToThreeMonths]"];
+
+  const threeToSixRaw =
+    rentalPricingObject.threeToSixMonths ??
+    body["rentalPricing.threeToSixMonths"] ??
+    body["rentalPricing[threeToSixMonths]"];
+
+  const sixMonthsPlusRaw =
+    rentalPricingObject.sixMonthsPlus ??
+    body["rentalPricing.sixMonthsPlus"] ??
+    body["rentalPricing[sixMonthsPlus]"];
+
+  // ---------------------------------------
+  // 4. BUILD OPTIONAL RENTAL PRICING
+  // ---------------------------------------
+
+  const rentalPricing = {};
+
+  if (
+    zeroToThreeRaw !== undefined &&
+    zeroToThreeRaw !== null &&
+    String(zeroToThreeRaw).trim() !== ""
+  ) {
+    const value = Number(zeroToThreeRaw);
+
+    if (!Number.isFinite(value) || value < 0) {
+      throw createError(
+        400,
+        "Invalid 0-3 months rental price.",
+      );
+    }
+
+    rentalPricing.zeroToThreeMonths = value;
+  }
+
+  if (
+    threeToSixRaw !== undefined &&
+    threeToSixRaw !== null &&
+    String(threeToSixRaw).trim() !== ""
+  ) {
+    const value = Number(threeToSixRaw);
+
+    if (!Number.isFinite(value) || value < 0) {
+      throw createError(
+        400,
+        "Invalid 3-6 months rental price.",
+      );
+    }
+
+    rentalPricing.threeToSixMonths = value;
+  }
+
+  if (
+    sixMonthsPlusRaw !== undefined &&
+    sixMonthsPlusRaw !== null &&
+    String(sixMonthsPlusRaw).trim() !== ""
+  ) {
+    const value = Number(sixMonthsPlusRaw);
+
+    if (!Number.isFinite(value) || value < 0) {
+      throw createError(
+        400,
+        "Invalid 6+ months rental price.",
+      );
+    }
+
+    rentalPricing.sixMonthsPlus = value;
+  }
+
+  // ---------------------------------------
+  // 5. VALIDATE BASIC REQUIRED FIELDS
+  // ---------------------------------------
+
+  if (!model || !brand || !category || !purchaseYear) {
+    throw createError(
+      400,
+      "Model, brand, category, and purchase year are required.",
+    );
+  }
+
+  // ---------------------------------------
+  // 6. VALIDATE FILES
+  // ---------------------------------------
+
   if (!Array.isArray(files) || files.length === 0) {
-    throw createError(400, "At least 1 asset image is required.");
+    throw createError(
+      400,
+      "At least 1 asset image is required.",
+    );
   }
 
-  // 5. Check whether user exists
-  const user = await userModel.findById(userId).select("_id name email");
+  // ---------------------------------------
+  // 7. CHECK USER EXISTS
+  // ---------------------------------------
+
+  const user = await userModel
+    .findById(userId)
+    .select("_id name email");
 
   if (!user) {
     throw createError(404, "User not found.");
@@ -56,23 +254,43 @@ export const addAssetService = async ({ userId, body = {}, files = [] }) => {
   let uploadedFiles = [];
 
   try {
-    // 6. Upload all asset images
+    // ---------------------------------------
+    // 8. UPLOAD ASSET IMAGES
+    // ---------------------------------------
+
     uploadedFiles = await Promise.all(
       files.map((file) => uploadAssetFile(file)),
     );
 
-    // 7. Create asset in MongoDB
-    const asset = await assetModel.create({
+    // ---------------------------------------
+    // 9. CREATE ASSET
+    // ---------------------------------------
+
+    const assetData = {
       userId: user._id,
+
       model,
       brand,
+      price,
+
+      assetName,
       category,
       subCategory,
-      assetName,
       purchaseYear,
-      price,
+
       files: uploadedFiles,
-    });
+    };
+
+    // Only save rentalPricing if at least one field exists
+    if (Object.keys(rentalPricing).length > 0) {
+      assetData.rentalPricing = rentalPricing;
+    }
+
+    const asset = await assetModel.create(assetData);
+
+    // ---------------------------------------
+    // 10. RESPONSE
+    // ---------------------------------------
 
     return {
       success: true,
@@ -80,11 +298,17 @@ export const addAssetService = async ({ userId, body = {}, files = [] }) => {
       asset,
     };
   } catch (error) {
-    // Uploaded images delete karo agar database save fail ho jaye
+    // ---------------------------------------
+    // DELETE UPLOADED FILES IF SAVE FAILS
+    // ---------------------------------------
+
     if (uploadedFiles.length > 0) {
       await Promise.allSettled(
         uploadedFiles.map(async (file) => {
-          const fileId = file.fileId || file.publicId || file.public_id;
+          const fileId =
+            file.fileId ||
+            file.publicId ||
+            file.public_id;
 
           if (fileId) {
             await deleteAssetFile(fileId);

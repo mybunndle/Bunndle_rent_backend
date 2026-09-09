@@ -36,16 +36,19 @@ const assetSchema = new mongoose.Schema(
       zeroToThreeMonths: {
         type: Number,
         min: 0,
+        default: 0,
       },
 
       threeToSixMonths: {
         type: Number,
         min: 0,
+        default:0,
       },
 
       sixMonthsPlus: {
         type: Number,
         min: 0,
+        default:0,
       },
     },
 
