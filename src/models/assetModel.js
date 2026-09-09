@@ -31,6 +31,26 @@ const assetSchema = new mongoose.Schema(
     price: {
       type: String,
     },
+    
+    rentalPricing: {
+      zeroToThreeMonths: {
+        type: Number,
+        min: 0,
+      },
+
+      threeToSixMonths: {
+        type: Number,
+        min: 0,
+      },
+
+      sixMonthsPlus: {
+        type: Number,
+        min: 0,
+      },
+    },
+
+
+
 
     assetName: {
       type: String,
@@ -55,6 +75,12 @@ const assetSchema = new mongoose.Schema(
       enum: ["approved", "rejected", "pending", "approvedButNotInApp"],
       default: "pending",
     },
+
+    isAvailable: {
+      type: Boolean,
+      default: true,
+    },
+
 
     deleteRequest: {
       type: Boolean,
