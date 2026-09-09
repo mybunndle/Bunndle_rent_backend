@@ -233,419 +233,6 @@ export const createPaymentOrder_Service = async ({
   }
 };
 
-// export const verifyPaymentOrder_Service = async ({
-//   userId,
-//   razorpay_order_id,
-//   razorpay_payment_id,
-//   razorpay_signature,
-// }) => {
-//   // ---------------------------------------
-//   // VALIDATION
-//   // ---------------------------------------
-
-//   if (!userId) {
-//     throw createError(401, "User authentication is required.");
-//   }
-
-//   if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-//     throw createError(400, "Razorpay payment details are required.");
-//   }
-
-//   if (!process.env.RAZORPAY_KEY_SECRET) {
-//     throw createError(500, "Razorpay configuration is missing.");
-//   }
-
-//   // ---------------------------------------
-//   // FIND PAYMENT FROM DATABASE
-//   // ---------------------------------------
-
-//   const payment = await paymentModel.findOne({
-//     razorpayOrderId: razorpay_order_id,
-//     userId,
-//   });
-
-//   if (!payment) {
-//     throw createError(404, "Payment order not found.");
-//   }
-
-//   // ---------------------------------------
-//   // IDEMPOTENT CHECK
-//   // Already successfully verified
-//   // ---------------------------------------
-
-//   if (payment.status === "SUCCESS") {
-//     if (payment.razorpayPaymentId === razorpay_payment_id) {
-//       return {
-//         success: true,
-
-//         message: "Payment already verified successfully.",
-
-//         data: {
-//           orderId: payment.orderId,
-
-//           paymentId: payment._id,
-
-//           razorpayOrderId: payment.razorpayOrderId,
-
-//           razorpayPaymentId: payment.razorpayPaymentId,
-
-//           paymentStatus: payment.status,
-//         },
-//       };
-//     }
-
-//     throw createError(
-//       409,
-//       "This order has already been paid using another payment.",
-//     );
-//   }
-
-//   // ---------------------------------------
-//   // GET INTERNAL ORDER
-//   // ---------------------------------------
-
-//   const internalOrder = await orderModel.findOne({
-//     _id: payment.orderId,
-//     userId,
-//   });
-
-//   if (!internalOrder) {
-//     throw createError(404, "Internal order not found.");
-//   }
-
-//   // ---------------------------------------
-//   // SERVER STORED RAZORPAY ORDER ID
-//   // ---------------------------------------
-
-//   const serverOrderId = payment.razorpayOrderId;
-
-//   if (!serverOrderId) {
-//     throw createError(400, "Razorpay order ID is missing from payment record.");
-//   }
-
-//   // Frontend order must match server order
-//   if (razorpay_order_id !== serverOrderId) {
-//     throw createError(400, "Razorpay order mismatch.");
-//   }
-
-//   // ---------------------------------------
-//   // CREATE EXPECTED SIGNATURE
-//   //
-//   // order_id|payment_id
-//   // ---------------------------------------
-
-//   const generatedSignature = createHmac(
-//     "sha256",
-//     process.env.RAZORPAY_KEY_SECRET,
-//   )
-//     .update(`${serverOrderId}|${razorpay_payment_id}`)
-//     .digest("hex");
-
-//   // ---------------------------------------
-//   // SECURE SIGNATURE COMPARISON
-//   // ---------------------------------------
-
-//   const generatedBuffer = Buffer.from(generatedSignature, "utf8");
-
-//   const receivedBuffer = Buffer.from(razorpay_signature, "utf8");
-
-//   const isSignatureValid =
-//     generatedBuffer.length === receivedBuffer.length &&
-//     timingSafeEqual(generatedBuffer, receivedBuffer);
-
-//   if (!isSignatureValid) {
-//     throw createError(400, "Payment signature verification failed.");
-//   }
-
-//   // ---------------------------------------
-//   // FETCH PAYMENT DIRECTLY FROM RAZORPAY
-//   // ---------------------------------------
-
-//   let razorpayPayment;
-
-//   try {
-//     razorpayPayment =
-//       await razorpayInstance.payments.fetch(razorpay_payment_id);
-//   } catch (error) {
-//     throw createError(400, "Unable to fetch payment details from Razorpay.");
-//   }
-
-//   if (!razorpayPayment) {
-//     throw createError(400, "Unable to verify payment with Razorpay.");
-//   }
-
-//   // ---------------------------------------
-//   // VERIFY PAYMENT ID
-//   // ---------------------------------------
-
-//   if (razorpayPayment.id !== razorpay_payment_id) {
-//     throw createError(400, "Razorpay payment ID mismatch.");
-//   }
-
-//   // ---------------------------------------
-//   // VERIFY ORDER ID
-//   // ---------------------------------------
-
-//   if (razorpayPayment.order_id !== serverOrderId) {
-//     throw createError(400, "Payment does not belong to this order.");
-//   }
-
-//   // ---------------------------------------
-//   // VERIFY AMOUNT
-//   //
-//   // MongoDB amount = rupees
-//   // Razorpay amount = paise
-//   // ---------------------------------------
-
-//   const expectedAmountInPaise = Math.round(Number(payment.amount) * 100);
-
-//   if (Number(razorpayPayment.amount) !== expectedAmountInPaise) {
-//     throw createError(400, "Payment amount mismatch.");
-//   }
-
-//   // ---------------------------------------
-//   // VERIFY CURRENCY
-//   // ---------------------------------------
-
-//   if (razorpayPayment.currency !== payment.currency) {
-//     throw createError(400, "Payment currency mismatch.");
-//   }
-
-//   // ---------------------------------------
-//   // VERIFY CAPTURE
-//   // ---------------------------------------
-
-//   if (razorpayPayment.status !== "captured") {
-//     throw createError(
-//       400,
-//       `Payment is not captured. Current status: ${razorpayPayment.status}`,
-//     );
-//   }
-
-//   // ---------------------------------------
-//   // CALCULATE ACTUAL RENTAL PERIOD
-//   //
-//   // Start rental AFTER payment succeeds.
-//   // ---------------------------------------
-
-//   const rentalStartDate = new Date();
-
-//   const rentalEndDate = new Date(rentalStartDate);
-
-//   rentalEndDate.setMonth(
-//     rentalEndDate.getMonth() + internalOrder.rentalDurationMonths,
-//   );
-
-//   const paidAt = new Date();
-
-//   // ---------------------------------------
-//   // DATABASE TRANSACTION
-//   // ---------------------------------------
-
-//   const session = await mongoose.startSession();
-
-//   try {
-//     session.startTransaction();
-
-//     // ---------------------------------------
-//     // UPDATE PAYMENT
-//     // ---------------------------------------
-
-//     const updatedPayment = await paymentModel.findOneAndUpdate(
-//       {
-//         _id: payment._id,
-
-//         status: {
-//           $ne: "SUCCESS",
-//         },
-//       },
-
-//       {
-//         $set: {
-//           razorpayPaymentId: razorpay_payment_id,
-
-//           razorpaySignature: razorpay_signature,
-
-//           status: "SUCCESS",
-
-//           paidAt,
-
-//           failureReason: null,
-//         },
-//       },
-
-//       {
-//         session,
-//         returnDocument: "after",
-//       },
-//     );
-
-//     // ---------------------------------------
-//     // ANOTHER REQUEST ALREADY VERIFIED IT
-//     // ---------------------------------------
-
-//     if (!updatedPayment) {
-//       await session.abortTransaction();
-
-//       const existingPayment = await paymentModel.findById(payment._id);
-
-//       return {
-//         success: true,
-
-//         message: "Payment already verified.",
-
-//         data: {
-//           orderId: existingPayment.orderId,
-
-//           paymentId: existingPayment._id,
-
-//           razorpayOrderId: existingPayment.razorpayOrderId,
-
-//           razorpayPaymentId: existingPayment.razorpayPaymentId,
-
-//           paymentStatus: existingPayment.status,
-//         },
-//       };
-//     }
-
-//     // ---------------------------------------
-//     // UPDATE INTERNAL ORDER
-//     //
-//     // Rental starts after payment success.
-//     // ---------------------------------------
-
-//     const updatedOrder = await orderModel.findByIdAndUpdate(
-//       internalOrder._id,
-
-//       {
-//         $set: {
-//           status: "PAYMENT_SUCCESS",
-
-//           rentalStartDate,
-
-//           rentalEndDate,
-//         },
-//       },
-
-//       {
-//         session,
-//         returnDocument: "after",
-//       },
-//     );
-
-//     if (!updatedOrder) {
-//       throw createError(500, "Unable to update rental order.");
-//     }
-
-//     // ---------------------------------------
-//     // CREATE RENTAL HISTORY
-//     // ---------------------------------------
-
-//     const rentalHistory = await rentalHistoryModel.findOneAndUpdate(
-//       {
-//         orderId: internalOrder._id,
-//       },
-
-//       {
-//         $setOnInsert: {
-//           userId,
-
-//           assetId: internalOrder.assetId,
-
-//           orderId: internalOrder._id,
-
-//           paymentId: updatedPayment._id,
-
-//           rentalStartDate,
-
-//           rentalEndDate,
-
-//           totalAmount: internalOrder.totalAmount,
-
-//           currency: internalOrder.currency || "INR",
-
-//           paymentStatus: "SUCCESS",
-
-//           rentalStatus: "ACTIVE",
-
-//           razorpayOrderId: serverOrderId,
-
-//           razorpayPaymentId: razorpay_payment_id,
-
-//           razorpaySignature: razorpay_signature,
-
-//           transactionReference: razorpay_payment_id,
-
-//           paidAt,
-//         },
-//       },
-
-//       {
-//         upsert: true,
-//         session,
-//         returnDocument: "after",
-//       },
-//     );
-
-//     // ---------------------------------------
-//     // COMMIT EVERYTHING
-//     // ---------------------------------------
-
-//     await session.commitTransaction();
-
-//     // ---------------------------------------
-//     // RESPONSE
-//     // ---------------------------------------
-
-//     return {
-//       success: true,
-
-//       message: "Payment verified and rental activated successfully.",
-
-//       data: {
-//         orderId: updatedOrder._id,
-
-//         paymentId: updatedPayment._id,
-
-//         rentalHistoryId: rentalHistory._id,
-
-//         razorpayOrderId: serverOrderId,
-
-//         razorpayPaymentId: razorpay_payment_id,
-
-//         amount: updatedPayment.amount,
-
-//         currency: updatedPayment.currency,
-
-//         duration: updatedOrder.rentalDurationMonths,
-
-//         durationUnit: "MONTH",
-
-//         rentalStartDate: updatedOrder.rentalStartDate,
-
-//         rentalEndDate: updatedOrder.rentalEndDate,
-
-//         paymentStatus: updatedPayment.status,
-
-//         orderStatus: updatedOrder.status,
-
-//         rentalStatus: rentalHistory.rentalStatus,
-//       },
-//     };
-//   } catch (error) {
-//     if (session.inTransaction()) {
-//       await session.abortTransaction();
-//     }
-
-//     throw error;
-//   } finally {
-//     await session.endSession();
-//   }
-// };
-
-
-
-
 export const verifyPaymentOrder_Service = async ({
   userId,
   razorpay_order_id,
@@ -688,13 +275,6 @@ export const verifyPaymentOrder_Service = async ({
 
   if (payment.status === "SUCCESS") {
     if (payment.razorpayPaymentId === razorpay_payment_id) {
-      // Make sure asset remains unavailable
-      await assetModel.findByIdAndUpdate(payment.assetId, {
-        $set: {
-          isAvailable: false,
-        },
-      });
-
       return {
         success: true,
 
@@ -740,10 +320,7 @@ export const verifyPaymentOrder_Service = async ({
   const serverOrderId = payment.razorpayOrderId;
 
   if (!serverOrderId) {
-    throw createError(
-      400,
-      "Razorpay order ID is missing from payment record.",
-    );
+    throw createError(400, "Razorpay order ID is missing from payment record.");
   }
 
   // Frontend order must match server order
@@ -753,6 +330,7 @@ export const verifyPaymentOrder_Service = async ({
 
   // ---------------------------------------
   // CREATE EXPECTED SIGNATURE
+  //
   // order_id|payment_id
   // ---------------------------------------
 
@@ -767,25 +345,16 @@ export const verifyPaymentOrder_Service = async ({
   // SECURE SIGNATURE COMPARISON
   // ---------------------------------------
 
-  const generatedBuffer = Buffer.from(
-    generatedSignature,
-    "utf8",
-  );
+  const generatedBuffer = Buffer.from(generatedSignature, "utf8");
 
-  const receivedBuffer = Buffer.from(
-    razorpay_signature,
-    "utf8",
-  );
+  const receivedBuffer = Buffer.from(razorpay_signature, "utf8");
 
   const isSignatureValid =
     generatedBuffer.length === receivedBuffer.length &&
     timingSafeEqual(generatedBuffer, receivedBuffer);
 
   if (!isSignatureValid) {
-    throw createError(
-      400,
-      "Payment signature verification failed.",
-    );
+    throw createError(400, "Payment signature verification failed.");
   }
 
   // ---------------------------------------
@@ -796,21 +365,13 @@ export const verifyPaymentOrder_Service = async ({
 
   try {
     razorpayPayment =
-      await razorpayInstance.payments.fetch(
-        razorpay_payment_id,
-      );
+      await razorpayInstance.payments.fetch(razorpay_payment_id);
   } catch (error) {
-    throw createError(
-      400,
-      "Unable to fetch payment details from Razorpay.",
-    );
+    throw createError(400, "Unable to fetch payment details from Razorpay.");
   }
 
   if (!razorpayPayment) {
-    throw createError(
-      400,
-      "Unable to verify payment with Razorpay.",
-    );
+    throw createError(400, "Unable to verify payment with Razorpay.");
   }
 
   // ---------------------------------------
@@ -818,10 +379,7 @@ export const verifyPaymentOrder_Service = async ({
   // ---------------------------------------
 
   if (razorpayPayment.id !== razorpay_payment_id) {
-    throw createError(
-      400,
-      "Razorpay payment ID mismatch.",
-    );
+    throw createError(400, "Razorpay payment ID mismatch.");
   }
 
   // ---------------------------------------
@@ -829,30 +387,20 @@ export const verifyPaymentOrder_Service = async ({
   // ---------------------------------------
 
   if (razorpayPayment.order_id !== serverOrderId) {
-    throw createError(
-      400,
-      "Payment does not belong to this order.",
-    );
+    throw createError(400, "Payment does not belong to this order.");
   }
 
   // ---------------------------------------
   // VERIFY AMOUNT
-  // MongoDB = rupees
-  // Razorpay = paise
+  //
+  // MongoDB amount = rupees
+  // Razorpay amount = paise
   // ---------------------------------------
 
-  const expectedAmountInPaise = Math.round(
-    Number(payment.amount) * 100,
-  );
+  const expectedAmountInPaise = Math.round(Number(payment.amount) * 100);
 
-  if (
-    Number(razorpayPayment.amount) !==
-    expectedAmountInPaise
-  ) {
-    throw createError(
-      400,
-      "Payment amount mismatch.",
-    );
+  if (Number(razorpayPayment.amount) !== expectedAmountInPaise) {
+    throw createError(400, "Payment amount mismatch.");
   }
 
   // ---------------------------------------
@@ -860,16 +408,11 @@ export const verifyPaymentOrder_Service = async ({
   // ---------------------------------------
 
   if (razorpayPayment.currency !== payment.currency) {
-    throw createError(
-      400,
-      "Payment currency mismatch.",
-    );
+    throw createError(400, "Payment currency mismatch.");
   }
 
   // ---------------------------------------
   // VERIFY CAPTURE
-  // IMPORTANT:
-  // isAvailable will change only after this
   // ---------------------------------------
 
   if (razorpayPayment.status !== "captured") {
@@ -880,18 +423,17 @@ export const verifyPaymentOrder_Service = async ({
   }
 
   // ---------------------------------------
-  // PAYMENT IS NOW CONFIRMED
+  // CALCULATE ACTUAL RENTAL PERIOD
+  //
+  // Start rental AFTER payment succeeds.
   // ---------------------------------------
 
   const rentalStartDate = new Date();
 
-  const rentalEndDate = new Date(
-    rentalStartDate,
-  );
+  const rentalEndDate = new Date(rentalStartDate);
 
   rentalEndDate.setMonth(
-    rentalEndDate.getMonth() +
-      internalOrder.rentalDurationMonths,
+    rentalEndDate.getMonth() + internalOrder.rentalDurationMonths,
   );
 
   const paidAt = new Date();
@@ -906,40 +448,37 @@ export const verifyPaymentOrder_Service = async ({
     session.startTransaction();
 
     // ---------------------------------------
-    // 1. UPDATE PAYMENT
+    // UPDATE PAYMENT
     // ---------------------------------------
 
-    const updatedPayment =
-      await paymentModel.findOneAndUpdate(
-        {
-          _id: payment._id,
+    const updatedPayment = await paymentModel.findOneAndUpdate(
+      {
+        _id: payment._id,
 
-          status: {
-            $ne: "SUCCESS",
-          },
+        status: {
+          $ne: "SUCCESS",
         },
+      },
 
-        {
-          $set: {
-            razorpayPaymentId:
-              razorpay_payment_id,
+      {
+        $set: {
+          razorpayPaymentId: razorpay_payment_id,
 
-            razorpaySignature:
-              razorpay_signature,
+          razorpaySignature: razorpay_signature,
 
-            status: "SUCCESS",
+          status: "SUCCESS",
 
-            paidAt,
+          paidAt,
 
-            failureReason: null,
-          },
+          failureReason: null,
         },
+      },
 
-        {
-          session,
-          returnDocument: "after",
-        },
-      );
+      {
+        session,
+        returnDocument: "after",
+      },
+    );
 
     // ---------------------------------------
     // ANOTHER REQUEST ALREADY VERIFIED IT
@@ -948,23 +487,7 @@ export const verifyPaymentOrder_Service = async ({
     if (!updatedPayment) {
       await session.abortTransaction();
 
-      const existingPayment =
-        await paymentModel.findById(
-          payment._id,
-        );
-
-      // Payment already SUCCESS,
-      // make sure asset is unavailable
-      if (existingPayment?.assetId) {
-        await assetModel.findByIdAndUpdate(
-          existingPayment.assetId,
-          {
-            $set: {
-              isAvailable: false,
-            },
-          },
-        );
-      }
+      const existingPayment = await paymentModel.findById(payment._id);
 
       return {
         success: true,
@@ -976,137 +499,93 @@ export const verifyPaymentOrder_Service = async ({
 
           paymentId: existingPayment._id,
 
-          razorpayOrderId:
-            existingPayment.razorpayOrderId,
+          razorpayOrderId: existingPayment.razorpayOrderId,
 
-          razorpayPaymentId:
-            existingPayment.razorpayPaymentId,
+          razorpayPaymentId: existingPayment.razorpayPaymentId,
 
-          paymentStatus:
-            existingPayment.status,
+          paymentStatus: existingPayment.status,
         },
       };
     }
 
     // ---------------------------------------
-    // 2. UPDATE INTERNAL ORDER
+    // UPDATE INTERNAL ORDER
+    //
+    // Rental starts after payment success.
     // ---------------------------------------
 
-    const updatedOrder =
-      await orderModel.findByIdAndUpdate(
-        internalOrder._id,
+    const updatedOrder = await orderModel.findByIdAndUpdate(
+      internalOrder._id,
 
-        {
-          $set: {
-            status: "PAYMENT_SUCCESS",
+      {
+        $set: {
+          status: "PAYMENT_SUCCESS",
 
-            rentalStartDate,
+          rentalStartDate,
 
-            rentalEndDate,
-          },
+          rentalEndDate,
         },
+      },
 
-        {
-          session,
-          returnDocument: "after",
-        },
-      );
+      {
+        session,
+        returnDocument: "after",
+      },
+    );
 
     if (!updatedOrder) {
-      throw createError(
-        500,
-        "Unable to update rental order.",
-      );
+      throw createError(500, "Unable to update rental order.");
     }
 
     // ---------------------------------------
-    // 3. PAYMENT VERIFIED
-    // MAKE ASSET UNAVAILABLE
+    // CREATE RENTAL HISTORY
     // ---------------------------------------
 
-    const updatedAsset =
-      await assetModel.findByIdAndUpdate(
-        internalOrder.assetId,
+    const rentalHistory = await rentalHistoryModel.findOneAndUpdate(
+      {
+        orderId: internalOrder._id,
+      },
 
-        {
-          $set: {
-            isAvailable: false,
-          },
-        },
+      {
+        $setOnInsert: {
+          userId,
 
-        {
-          session,
-          returnDocument: "after",
-        },
-      );
+          assetId: internalOrder.assetId,
 
-    if (!updatedAsset) {
-      throw createError(
-        404,
-        "Asset not found.",
-      );
-    }
-
-    // ---------------------------------------
-    // 4. CREATE RENTAL HISTORY
-    // ---------------------------------------
-
-    const rentalHistory =
-      await rentalHistoryModel.findOneAndUpdate(
-        {
           orderId: internalOrder._id,
+
+          paymentId: updatedPayment._id,
+
+          rentalStartDate,
+
+          rentalEndDate,
+
+          totalAmount: internalOrder.totalAmount,
+
+          currency: internalOrder.currency || "INR",
+
+          paymentStatus: "SUCCESS",
+
+          rentalStatus: "ACTIVE",
+
+          razorpayOrderId: serverOrderId,
+
+          razorpayPaymentId: razorpay_payment_id,
+
+          razorpaySignature: razorpay_signature,
+
+          transactionReference: razorpay_payment_id,
+
+          paidAt,
         },
+      },
 
-        {
-          $setOnInsert: {
-            userId,
-
-            assetId:
-              internalOrder.assetId,
-
-            orderId:
-              internalOrder._id,
-
-            paymentId:
-              updatedPayment._id,
-
-            rentalStartDate,
-
-            rentalEndDate,
-
-            totalAmount:
-              internalOrder.totalAmount,
-
-            currency:
-              internalOrder.currency ||
-              "INR",
-
-            paymentStatus: "SUCCESS",
-
-            rentalStatus: "ACTIVE",
-
-            razorpayOrderId:
-              serverOrderId,
-
-            razorpayPaymentId:
-              razorpay_payment_id,
-
-            razorpaySignature:
-              razorpay_signature,
-
-            transactionReference:
-              razorpay_payment_id,
-
-            paidAt,
-          },
-        },
-
-        {
-          upsert: true,
-          session,
-          returnDocument: "after",
-        },
-      );
+      {
+        upsert: true,
+        session,
+        returnDocument: "after",
+      },
+    );
 
     // ---------------------------------------
     // COMMIT EVERYTHING
@@ -1121,51 +600,36 @@ export const verifyPaymentOrder_Service = async ({
     return {
       success: true,
 
-      message:
-        "Payment verified and rental activated successfully.",
+      message: "Payment verified and rental activated successfully.",
 
       data: {
         orderId: updatedOrder._id,
 
         paymentId: updatedPayment._id,
 
-        rentalHistoryId:
-          rentalHistory._id,
+        rentalHistoryId: rentalHistory._id,
 
-        razorpayOrderId:
-          serverOrderId,
+        razorpayOrderId: serverOrderId,
 
-        razorpayPaymentId:
-          razorpay_payment_id,
+        razorpayPaymentId: razorpay_payment_id,
 
         amount: updatedPayment.amount,
 
-        currency:
-          updatedPayment.currency,
+        currency: updatedPayment.currency,
 
-        duration:
-          updatedOrder.rentalDurationMonths,
+        duration: updatedOrder.rentalDurationMonths,
 
         durationUnit: "MONTH",
 
-        rentalStartDate:
-          updatedOrder.rentalStartDate,
+        rentalStartDate: updatedOrder.rentalStartDate,
 
-        rentalEndDate:
-          updatedOrder.rentalEndDate,
+        rentalEndDate: updatedOrder.rentalEndDate,
 
-        paymentStatus:
-          updatedPayment.status,
+        paymentStatus: updatedPayment.status,
 
-        orderStatus:
-          updatedOrder.status,
+        orderStatus: updatedOrder.status,
 
-        rentalStatus:
-          rentalHistory.rentalStatus,
-
-        // Now false after successful payment
-        isAvailable:
-          updatedAsset.isAvailable,
+        rentalStatus: rentalHistory.rentalStatus,
       },
     };
   } catch (error) {
@@ -1178,6 +642,542 @@ export const verifyPaymentOrder_Service = async ({
     await session.endSession();
   }
 };
+
+
+
+
+// export const verifyPaymentOrder_Service = async ({
+//   userId,
+//   razorpay_order_id,
+//   razorpay_payment_id,
+//   razorpay_signature,
+// }) => {
+//   // ---------------------------------------
+//   // VALIDATION
+//   // ---------------------------------------
+
+//   if (!userId) {
+//     throw createError(401, "User authentication is required.");
+//   }
+
+//   if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+//     throw createError(400, "Razorpay payment details are required.");
+//   }
+
+//   if (!process.env.RAZORPAY_KEY_SECRET) {
+//     throw createError(500, "Razorpay configuration is missing.");
+//   }
+
+//   // ---------------------------------------
+//   // FIND PAYMENT FROM DATABASE
+//   // ---------------------------------------
+
+//   const payment = await paymentModel.findOne({
+//     razorpayOrderId: razorpay_order_id,
+//     userId,
+//   });
+
+//   if (!payment) {
+//     throw createError(404, "Payment order not found.");
+//   }
+
+//   // ---------------------------------------
+//   // IDEMPOTENT CHECK
+//   // Already successfully verified
+//   // ---------------------------------------
+
+//   if (payment.status === "SUCCESS") {
+//     if (payment.razorpayPaymentId === razorpay_payment_id) {
+//       // Make sure asset remains unavailable
+//       await assetModel.findByIdAndUpdate(payment.assetId, {
+//         $set: {
+//           isAvailable: false,
+//         },
+//       });
+
+//       return {
+//         success: true,
+
+//         message: "Payment already verified successfully.",
+
+//         data: {
+//           orderId: payment.orderId,
+
+//           paymentId: payment._id,
+
+//           razorpayOrderId: payment.razorpayOrderId,
+
+//           razorpayPaymentId: payment.razorpayPaymentId,
+
+//           paymentStatus: payment.status,
+//         },
+//       };
+//     }
+
+//     throw createError(
+//       409,
+//       "This order has already been paid using another payment.",
+//     );
+//   }
+
+//   // ---------------------------------------
+//   // GET INTERNAL ORDER
+//   // ---------------------------------------
+
+//   const internalOrder = await orderModel.findOne({
+//     _id: payment.orderId,
+//     userId,
+//   });
+
+//   if (!internalOrder) {
+//     throw createError(404, "Internal order not found.");
+//   }
+
+//   // ---------------------------------------
+//   // SERVER STORED RAZORPAY ORDER ID
+//   // ---------------------------------------
+
+//   const serverOrderId = payment.razorpayOrderId;
+
+//   if (!serverOrderId) {
+//     throw createError(
+//       400,
+//       "Razorpay order ID is missing from payment record.",
+//     );
+//   }
+
+//   // Frontend order must match server order
+//   if (razorpay_order_id !== serverOrderId) {
+//     throw createError(400, "Razorpay order mismatch.");
+//   }
+
+//   // ---------------------------------------
+//   // CREATE EXPECTED SIGNATURE
+//   // order_id|payment_id
+//   // ---------------------------------------
+
+//   const generatedSignature = createHmac(
+//     "sha256",
+//     process.env.RAZORPAY_KEY_SECRET,
+//   )
+//     .update(`${serverOrderId}|${razorpay_payment_id}`)
+//     .digest("hex");
+
+//   // ---------------------------------------
+//   // SECURE SIGNATURE COMPARISON
+//   // ---------------------------------------
+
+//   const generatedBuffer = Buffer.from(
+//     generatedSignature,
+//     "utf8",
+//   );
+
+//   const receivedBuffer = Buffer.from(
+//     razorpay_signature,
+//     "utf8",
+//   );
+
+//   const isSignatureValid =
+//     generatedBuffer.length === receivedBuffer.length &&
+//     timingSafeEqual(generatedBuffer, receivedBuffer);
+
+//   if (!isSignatureValid) {
+//     throw createError(
+//       400,
+//       "Payment signature verification failed.",
+//     );
+//   }
+
+//   // ---------------------------------------
+//   // FETCH PAYMENT DIRECTLY FROM RAZORPAY
+//   // ---------------------------------------
+
+//   let razorpayPayment;
+
+//   try {
+//     razorpayPayment =
+//       await razorpayInstance.payments.fetch(
+//         razorpay_payment_id,
+//       );
+//   } catch (error) {
+//     throw createError(
+//       400,
+//       "Unable to fetch payment details from Razorpay.",
+//     );
+//   }
+
+//   if (!razorpayPayment) {
+//     throw createError(
+//       400,
+//       "Unable to verify payment with Razorpay.",
+//     );
+//   }
+
+//   // ---------------------------------------
+//   // VERIFY PAYMENT ID
+//   // ---------------------------------------
+
+//   if (razorpayPayment.id !== razorpay_payment_id) {
+//     throw createError(
+//       400,
+//       "Razorpay payment ID mismatch.",
+//     );
+//   }
+
+//   // ---------------------------------------
+//   // VERIFY ORDER ID
+//   // ---------------------------------------
+
+//   if (razorpayPayment.order_id !== serverOrderId) {
+//     throw createError(
+//       400,
+//       "Payment does not belong to this order.",
+//     );
+//   }
+
+//   // ---------------------------------------
+//   // VERIFY AMOUNT
+//   // MongoDB = rupees
+//   // Razorpay = paise
+//   // ---------------------------------------
+
+//   const expectedAmountInPaise = Math.round(
+//     Number(payment.amount) * 100,
+//   );
+
+//   if (
+//     Number(razorpayPayment.amount) !==
+//     expectedAmountInPaise
+//   ) {
+//     throw createError(
+//       400,
+//       "Payment amount mismatch.",
+//     );
+//   }
+
+//   // ---------------------------------------
+//   // VERIFY CURRENCY
+//   // ---------------------------------------
+
+//   if (razorpayPayment.currency !== payment.currency) {
+//     throw createError(
+//       400,
+//       "Payment currency mismatch.",
+//     );
+//   }
+
+//   // ---------------------------------------
+//   // VERIFY CAPTURE
+//   // IMPORTANT:
+//   // isAvailable will change only after this
+//   // ---------------------------------------
+
+//   if (razorpayPayment.status !== "captured") {
+//     throw createError(
+//       400,
+//       `Payment is not captured. Current status: ${razorpayPayment.status}`,
+//     );
+//   }
+
+//   // ---------------------------------------
+//   // PAYMENT IS NOW CONFIRMED
+//   // ---------------------------------------
+
+//   const rentalStartDate = new Date();
+
+//   const rentalEndDate = new Date(
+//     rentalStartDate,
+//   );
+
+//   rentalEndDate.setMonth(
+//     rentalEndDate.getMonth() +
+//       internalOrder.rentalDurationMonths,
+//   );
+
+//   const paidAt = new Date();
+
+//   // ---------------------------------------
+//   // DATABASE TRANSACTION
+//   // ---------------------------------------
+
+//   const session = await mongoose.startSession();
+
+//   try {
+//     session.startTransaction();
+
+//     // ---------------------------------------
+//     // 1. UPDATE PAYMENT
+//     // ---------------------------------------
+
+//     const updatedPayment =
+//       await paymentModel.findOneAndUpdate(
+//         {
+//           _id: payment._id,
+
+//           status: {
+//             $ne: "SUCCESS",
+//           },
+//         },
+
+//         {
+//           $set: {
+//             razorpayPaymentId:
+//               razorpay_payment_id,
+
+//             razorpaySignature:
+//               razorpay_signature,
+
+//             status: "SUCCESS",
+
+//             paidAt,
+
+//             failureReason: null,
+//           },
+//         },
+
+//         {
+//           session,
+//           returnDocument: "after",
+//         },
+//       );
+
+//     // ---------------------------------------
+//     // ANOTHER REQUEST ALREADY VERIFIED IT
+//     // ---------------------------------------
+
+//     if (!updatedPayment) {
+//       await session.abortTransaction();
+
+//       const existingPayment =
+//         await paymentModel.findById(
+//           payment._id,
+//         );
+
+//       // Payment already SUCCESS,
+//       // make sure asset is unavailable
+//       if (existingPayment?.assetId) {
+//         await assetModel.findByIdAndUpdate(
+//           existingPayment.assetId,
+//           {
+//             $set: {
+//               isAvailable: false,
+//             },
+//           },
+//         );
+//       }
+
+//       return {
+//         success: true,
+
+//         message: "Payment already verified.",
+
+//         data: {
+//           orderId: existingPayment.orderId,
+
+//           paymentId: existingPayment._id,
+
+//           razorpayOrderId:
+//             existingPayment.razorpayOrderId,
+
+//           razorpayPaymentId:
+//             existingPayment.razorpayPaymentId,
+
+//           paymentStatus:
+//             existingPayment.status,
+//         },
+//       };
+//     }
+
+//     // ---------------------------------------
+//     // 2. UPDATE INTERNAL ORDER
+//     // ---------------------------------------
+
+//     const updatedOrder =
+//       await orderModel.findByIdAndUpdate(
+//         internalOrder._id,
+
+//         {
+//           $set: {
+//             status: "PAYMENT_SUCCESS",
+
+//             rentalStartDate,
+
+//             rentalEndDate,
+//           },
+//         },
+
+//         {
+//           session,
+//           returnDocument: "after",
+//         },
+//       );
+
+//     if (!updatedOrder) {
+//       throw createError(
+//         500,
+//         "Unable to update rental order.",
+//       );
+//     }
+
+//     // ---------------------------------------
+//     // 3. PAYMENT VERIFIED
+//     // MAKE ASSET UNAVAILABLE
+//     // ---------------------------------------
+
+//     const updatedAsset =
+//       await assetModel.findByIdAndUpdate(
+//         internalOrder.assetId,
+
+//         {
+//           $set: {
+//             isAvailable: false,
+//           },
+//         },
+
+//         {
+//           session,
+//           returnDocument: "after",
+//         },
+//       );
+
+//     if (!updatedAsset) {
+//       throw createError(
+//         404,
+//         "Asset not found.",
+//       );
+//     }
+
+//     // ---------------------------------------
+//     // 4. CREATE RENTAL HISTORY
+//     // ---------------------------------------
+
+//     const rentalHistory =
+//       await rentalHistoryModel.findOneAndUpdate(
+//         {
+//           orderId: internalOrder._id,
+//         },
+
+//         {
+//           $setOnInsert: {
+//             userId,
+
+//             assetId:
+//               internalOrder.assetId,
+
+//             orderId:
+//               internalOrder._id,
+
+//             paymentId:
+//               updatedPayment._id,
+
+//             rentalStartDate,
+
+//             rentalEndDate,
+
+//             totalAmount:
+//               internalOrder.totalAmount,
+
+//             currency:
+//               internalOrder.currency ||
+//               "INR",
+
+//             paymentStatus: "SUCCESS",
+
+//             rentalStatus: "ACTIVE",
+
+//             razorpayOrderId:
+//               serverOrderId,
+
+//             razorpayPaymentId:
+//               razorpay_payment_id,
+
+//             razorpaySignature:
+//               razorpay_signature,
+
+//             transactionReference:
+//               razorpay_payment_id,
+
+//             paidAt,
+//           },
+//         },
+
+//         {
+//           upsert: true,
+//           session,
+//           returnDocument: "after",
+//         },
+//       );
+
+//     // ---------------------------------------
+//     // COMMIT EVERYTHING
+//     // ---------------------------------------
+
+//     await session.commitTransaction();
+
+//     // ---------------------------------------
+//     // RESPONSE
+//     // ---------------------------------------
+
+//     return {
+//       success: true,
+
+//       message:
+//         "Payment verified and rental activated successfully.",
+
+//       data: {
+//         orderId: updatedOrder._id,
+
+//         paymentId: updatedPayment._id,
+
+//         rentalHistoryId:
+//           rentalHistory._id,
+
+//         razorpayOrderId:
+//           serverOrderId,
+
+//         razorpayPaymentId:
+//           razorpay_payment_id,
+
+//         amount: updatedPayment.amount,
+
+//         currency:
+//           updatedPayment.currency,
+
+//         duration:
+//           updatedOrder.rentalDurationMonths,
+
+//         durationUnit: "MONTH",
+
+//         rentalStartDate:
+//           updatedOrder.rentalStartDate,
+
+//         rentalEndDate:
+//           updatedOrder.rentalEndDate,
+
+//         paymentStatus:
+//           updatedPayment.status,
+
+//         orderStatus:
+//           updatedOrder.status,
+
+//         rentalStatus:
+//           rentalHistory.rentalStatus,
+
+//         // Now false after successful payment
+//         isAvailable:
+//           updatedAsset.isAvailable,
+//       },
+//     };
+//   } catch (error) {
+//     if (session.inTransaction()) {
+//       await session.abortTransaction();
+//     }
+
+//     throw error;
+//   } finally {
+//     await session.endSession();
+//   }
+// };
 export const getUserPayments_Service = async ({
   userId,
   status1,
