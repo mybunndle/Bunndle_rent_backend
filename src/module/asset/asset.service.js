@@ -512,6 +512,232 @@ export const getAssetsService = async () => {
 // };
 
 
+// // ---------------------------------------
+// // 8. CHECK WHETHER USER SENT ANYTHING TO UPDATE
+
+
+// export const editAssetService = async ({
+//   assetId,
+//   userId,
+//   body = {},
+//   files = [],
+// }) => {
+//   let newlyUploadedFiles = [];
+
+//   // ---------------------------------------
+//   // 1. CHECK LOGGED-IN USER
+//   // ---------------------------------------
+
+//   if (!userId) {
+//     throw createError(401, "Unauthorized user.");
+//   }
+
+//   // ---------------------------------------
+//   // 2. VALIDATE ASSET ID
+//   // ---------------------------------------
+
+//   if (!assetId || !mongoose.Types.ObjectId.isValid(assetId)) {
+//     throw createError(400, "Invalid asset ID.");
+//   }
+
+//   // ---------------------------------------
+//   // 3. FIND USER ASSET
+//   // ---------------------------------------
+
+//   const existingAsset = await assetModel.findOne({
+//     _id: assetId,
+//     userId,
+//   });
+
+//   if (!existingAsset) {
+//     throw createError(
+//       404,
+//       "Asset not found or you are not allowed to edit it.",
+//     );
+//   }
+
+//   // ---------------------------------------
+//   // 4. PREPARE UPDATE DATA
+//   // ---------------------------------------
+
+//   const updateData = {};
+
+//   const allowedFields = [
+//     "model",
+//     "brand",
+//     "category",
+//     "subCategory",
+//     "assetName",
+//     "purchaseYear",
+//     "price",
+//     "isAvailable",
+//   ];
+
+//   for (const field of allowedFields) {
+//     if (body[field] !== undefined) {
+//       const cleanedValue = cleanValue(body[field]);
+
+//       // If empty/null value sent,
+//       // simply skip it instead of throwing error
+//       if (cleanedValue !== undefined) {
+//         updateData[field] = cleanedValue;
+//       }
+//     }
+//   }
+
+//   // ---------------------------------------
+//   // 5. HANDLE RENTAL PRICING
+//   // ---------------------------------------
+
+//   if (body.rentalPricing !== undefined) {
+//     let rentalPricing = body.rentalPricing;
+
+//     // multipart/form-data may send JSON as string
+//     if (typeof rentalPricing === "string") {
+//       try {
+//         rentalPricing = JSON.parse(rentalPricing);
+//       } catch (error) {
+//         throw createError(
+//           400,
+//           "rentalPricing must be a valid JSON object.",
+//         );
+//       }
+//     }
+
+//     if (
+//       rentalPricing &&
+//       typeof rentalPricing === "object" &&
+//       !Array.isArray(rentalPricing)
+//     ) {
+//       const allowedRentalFields = [
+//         "zeroToThreeMonths",
+//         "threeToSixMonths",
+//         "sixMonthsPlus",
+//       ];
+
+//       for (const field of allowedRentalFields) {
+//         if (
+//           rentalPricing[field] !== undefined &&
+//           rentalPricing[field] !== null &&
+//           rentalPricing[field] !== ""
+//         ) {
+//           const value = Number(rentalPricing[field]);
+
+//           if (!Number.isFinite(value) || value < 0) {
+//             throw createError(
+//               400,
+//               `${field} must be a valid number greater than or equal to 0.`,
+//             );
+//           }
+
+//           updateData[`rentalPricing.${field}`] = value;
+//         }
+//       }
+//     }
+//   }
+
+//   // ---------------------------------------
+//   // 6. VALIDATE FILES
+//   // ---------------------------------------
+
+//   if (!Array.isArray(files)) {
+//     throw createError(400, "Invalid uploaded files.");
+//   }
+
+//   try {
+//     // ---------------------------------------
+//     // 7. UPLOAD NEW IMAGES
+//     // ---------------------------------------
+
+//     if (files.length > 0) {
+//       newlyUploadedFiles = await Promise.all(
+//         files.map((file) => uploadAssetFile(file)),
+//       );
+
+//       updateData.files = newlyUploadedFiles;
+//     }
+
+//     // ---------------------------------------
+//     // 8. NOTHING PROVIDED
+//     // ---------------------------------------
+
+//     if (Object.keys(updateData).length === 0) {
+//       throw createError(
+//         400,
+//         "Provide at least one field or image to update.",
+//       );
+//     }
+
+//     // ---------------------------------------
+//     // 9. UPDATE ASSET
+//     // ---------------------------------------
+
+//     const updatedAsset = await assetModel.findOneAndUpdate(
+//       {
+//         _id: assetId,
+//         userId,
+//       },
+//       {
+//         $set: updateData,
+//       },
+//       {
+//         new: true,
+//         runValidators: true,
+//       },
+//     );
+
+//     if (!updatedAsset) {
+//       throw createError(404, "Asset could not be updated.");
+//     }
+
+//     // ---------------------------------------
+//     // 10. DELETE OLD IMAGES
+//     // ---------------------------------------
+
+//     if (
+//       newlyUploadedFiles.length > 0 &&
+//       Array.isArray(existingAsset.files) &&
+//       existingAsset.files.length > 0
+//     ) {
+//       await Promise.allSettled(
+//         existingAsset.files.map(async (file) => {
+//           const fileId =
+//             file.fileId ||
+//             file.publicId ||
+//             file.public_id;
+
+//           if (fileId) {
+//             await deleteAssetFile(fileId);
+//           }
+//         }),
+//       );
+//     }
+
+//     return updatedAsset;
+//   } catch (error) {
+//     // ---------------------------------------
+//     // REMOVE NEW FILES IF UPDATE FAILED
+//     // ---------------------------------------
+
+//     if (newlyUploadedFiles.length > 0) {
+//       await Promise.allSettled(
+//         newlyUploadedFiles.map(async (file) => {
+//           const fileId =
+//             file.fileId ||
+//             file.publicId ||
+//             file.public_id;
+
+//           if (fileId) {
+//             await deleteAssetFile(fileId);
+//           }
+//         }),
+//       );
+//     }
+
+//     throw error;
+//   }
+// };
+
 
 
 export const editAssetService = async ({
@@ -568,15 +794,18 @@ export const editAssetService = async ({
     "assetName",
     "purchaseYear",
     "price",
-    "isAvailable",
   ];
+
+  // ---------------------------------------
+  // 5. HANDLE NORMAL FIELDS
+  // ---------------------------------------
 
   for (const field of allowedFields) {
     if (body[field] !== undefined) {
       const cleanedValue = cleanValue(body[field]);
 
-      // If empty/null value sent,
-      // simply skip it instead of throwing error
+      // No field is mandatory.
+      // Empty fields will simply be ignored.
       if (cleanedValue !== undefined) {
         updateData[field] = cleanedValue;
       }
@@ -584,58 +813,137 @@ export const editAssetService = async ({
   }
 
   // ---------------------------------------
-  // 5. HANDLE RENTAL PRICING
+  // 6. HANDLE IS AVAILABLE
   // ---------------------------------------
 
-  if (body.rentalPricing !== undefined) {
-    let rentalPricing = body.rentalPricing;
-
-    // multipart/form-data may send JSON as string
-    if (typeof rentalPricing === "string") {
-      try {
-        rentalPricing = JSON.parse(rentalPricing);
-      } catch (error) {
-        throw createError(
-          400,
-          "rentalPricing must be a valid JSON object.",
-        );
-      }
-    }
-
+  if (
+    body.isAvailable !== undefined &&
+    body.isAvailable !== null &&
+    body.isAvailable !== ""
+  ) {
     if (
-      rentalPricing &&
-      typeof rentalPricing === "object" &&
-      !Array.isArray(rentalPricing)
+      body.isAvailable === true ||
+      body.isAvailable === "true"
     ) {
-      const allowedRentalFields = [
-        "zeroToThreeMonths",
-        "threeToSixMonths",
-        "sixMonthsPlus",
-      ];
-
-      for (const field of allowedRentalFields) {
-        if (
-          rentalPricing[field] !== undefined &&
-          rentalPricing[field] !== null &&
-          rentalPricing[field] !== ""
-        ) {
-          const value = Number(rentalPricing[field]);
-
-          if (!Number.isFinite(value) || value < 0) {
-            throw createError(
-              400,
-              `${field} must be a valid number greater than or equal to 0.`,
-            );
-          }
-
-          updateData[`rentalPricing.${field}`] = value;
-        }
-      }
+      updateData.isAvailable = true;
+    } else if (
+      body.isAvailable === false ||
+      body.isAvailable === "false"
+    ) {
+      updateData.isAvailable = false;
+    } else {
+      throw createError(
+        400,
+        "isAvailable must be true or false.",
+      );
     }
   }
 
   // ---------------------------------------
-  // 6. VALIDATE FILES
+  // 7. HANDLE RENTAL PRICING
+  // ---------------------------------------
+
+  const rentalFields = [
+    "zeroToThreeMonths",
+    "threeToSixMonths",
+    "sixMonthsPlus",
+  ];
+
+  /*
+   * Supports:
+   *
+   * JSON:
+   * rentalPricing: {
+   *   zeroToThreeMonths: 70000
+   * }
+   *
+   * Form-data:
+   * rentalPricing[zeroToThreeMonths]: 70000
+   */
+
+  let rentalPricing = {};
+
+  // ---------------------------------------
+  // CASE 1: body.rentalPricing
+  // ---------------------------------------
+
+  if (body.rentalPricing !== undefined) {
+    if (typeof body.rentalPricing === "string") {
+      try {
+        const parsedRentalPricing = JSON.parse(
+          body.rentalPricing,
+        );
+
+        if (
+          parsedRentalPricing &&
+          typeof parsedRentalPricing === "object" &&
+          !Array.isArray(parsedRentalPricing)
+        ) {
+          rentalPricing = {
+            ...rentalPricing,
+            ...parsedRentalPricing,
+          };
+        }
+      } catch (error) {
+        // If it isn't JSON, don't immediately fail because
+        // bracket-style form-data may still have been provided.
+      }
+    } else if (
+      body.rentalPricing &&
+      typeof body.rentalPricing === "object" &&
+      !Array.isArray(body.rentalPricing)
+    ) {
+      rentalPricing = {
+        ...rentalPricing,
+        ...body.rentalPricing,
+      };
+    }
+  }
+
+  // ---------------------------------------
+  // CASE 2: FORM-DATA BRACKET NOTATION
+  // ---------------------------------------
+
+  for (const field of rentalFields) {
+    const bracketKey = `rentalPricing[${field}]`;
+
+    if (body[bracketKey] !== undefined) {
+      rentalPricing[field] = body[bracketKey];
+    }
+  }
+
+  // ---------------------------------------
+  // VALIDATE + ADD RENTAL PRICING
+  // ---------------------------------------
+
+  for (const field of rentalFields) {
+    const rawValue = rentalPricing[field];
+
+    // Nothing mandatory
+    if (
+      rawValue === undefined ||
+      rawValue === null ||
+      rawValue === ""
+    ) {
+      continue;
+    }
+
+    const value = Number(rawValue);
+
+    if (!Number.isFinite(value) || value < 0) {
+      throw createError(
+        400,
+        `${field} must be a valid number greater than or equal to 0.`,
+      );
+    }
+
+    // Dot notation means only this specific
+    // rental field will be updated.
+    updateData[`rentalPricing.${field}`] = value;
+  }
+
+  // ---------------------------------------
+  // 8. VALIDATE FILES
   // ---------------------------------------
 
   if (!Array.isArray(files)) {
@@ -644,7 +952,7 @@ export const editAssetService = async ({
 
   try {
     // ---------------------------------------
-    // 7. UPLOAD NEW IMAGES
+    // 9. UPLOAD NEW IMAGES
     // ---------------------------------------
 
     if (files.length > 0) {
@@ -652,11 +960,12 @@ export const editAssetService = async ({
         files.map((file) => uploadAssetFile(file)),
       );
 
+      // New images replace existing images
       updateData.files = newlyUploadedFiles;
     }
 
     // ---------------------------------------
-    // 8. NOTHING PROVIDED
+    // 10. NOTHING PROVIDED TO UPDATE
     // ---------------------------------------
 
     if (Object.keys(updateData).length === 0) {
@@ -667,7 +976,7 @@ export const editAssetService = async ({
     }
 
     // ---------------------------------------
-    // 9. UPDATE ASSET
+    // 11. UPDATE ASSET
     // ---------------------------------------
 
     const updatedAsset = await assetModel.findOneAndUpdate(
@@ -679,17 +988,20 @@ export const editAssetService = async ({
         $set: updateData,
       },
       {
-        new: true,
+        returnDocument: "after",
         runValidators: true,
       },
     );
 
     if (!updatedAsset) {
-      throw createError(404, "Asset could not be updated.");
+      throw createError(
+        404,
+        "Asset could not be updated.",
+      );
     }
 
     // ---------------------------------------
-    // 10. DELETE OLD IMAGES
+    // 12. DELETE OLD IMAGES
     // ---------------------------------------
 
     if (
@@ -714,7 +1026,7 @@ export const editAssetService = async ({
     return updatedAsset;
   } catch (error) {
     // ---------------------------------------
-    // REMOVE NEW FILES IF UPDATE FAILED
+    // 13. CLEAN NEW FILES IF UPDATE FAILED
     // ---------------------------------------
 
     if (newlyUploadedFiles.length > 0) {
