@@ -643,9 +643,6 @@ export const verifyPaymentOrder_Service = async ({
   }
 };
 
-
-
-
 // export const verifyPaymentOrder_Service = async ({
 //   userId,
 //   razorpay_order_id,
@@ -1178,23 +1175,119 @@ export const verifyPaymentOrder_Service = async ({
 //     await session.endSession();
 //   }
 // };
+// export const getUserPayments_Service = async ({ userId, status1, status2 }) => {
+//   if (!userId) {
+//     throw createError(401, "User authentication is required.");
+//   }
+
+//   if (!mongoose.Types.ObjectId.isValid(userId)) {
+//     throw createError(400, "Invalid User ID.");
+//   }
+
+//   const allowedStatuses = ["PENDING", "SUCCESS", "FAILED", "REFUNDED"];
+
+//   // ---------------------------------------
+//   // NORMALIZE STATUS
+//   // ---------------------------------------
+
+//   const normalizeStatus = (value, fieldName) => {
+//     if (value === undefined || value === null || value === "") {
+//       return null;
+//     }
+
+//     const rawValue = Array.isArray(value) ? value[0] : value;
+
+//     if (typeof rawValue !== "string") {
+//       throw createError(400, `${fieldName} must be a valid string.`);
+//     }
+
+//     const normalized = rawValue.trim().toUpperCase();
+
+//     if (!allowedStatuses.includes(normalized)) {
+//       throw createError(400, `Invalid ${fieldName}: ${rawValue}`);
+//     }
+
+//     return normalized;
+//   };
+
+//   const normalizedStatus1 = normalizeStatus(status1, "status1");
+
+//   const normalizedStatus2 = normalizeStatus(status2, "status2");
+
+//   // ---------------------------------------
+//   // BUILD FILTER
+//   // ---------------------------------------
+
+//   const filter = {
+//     userId,
+//   };
+
+//   const statuses = [];
+
+//   if (normalizedStatus1) {
+//     statuses.push(normalizedStatus1);
+//   }
+
+//   if (normalizedStatus2) {
+//     statuses.push(normalizedStatus2);
+//   }
+
+//   if (statuses.length > 0) {
+//     filter.status = {
+//       $in: [...new Set(statuses)],
+//     };
+//   }
+
+//   // ---------------------------------------
+//   // GET PAYMENTS
+//   // ---------------------------------------
+
+//   const payments = await paymentModel
+//     .find(filter)
+//     .select("-razorpaySignature")
+//     .populate({
+//       path: "assetId",
+//       select: "assetName brand model category subCategory price files isAvailable rentalPricing ",
+//     })
+//     .populate({
+//       path: "orderId",
+//       select:
+//         "totalAmount currency rentalDurationMonths rentalStartDate rentalEndDate status createdAt",
+//     })
+//     .sort({
+//       createdAt: -1,
+//     })
+//     .lean();
+
+//   // ---------------------------------------
+//   // RESPONSE
+//   // ---------------------------------------
+
+//   return {
+//     success: true,
+
+//     message: "Payment history fetched successfully.",
+
+//     totalPayments: payments.length,
+
+//     data: payments,
+//   };
+// };
+
+
+
+
 export const getUserPayments_Service = async ({
   userId,
   status1,
   status2,
 }) => {
   if (!userId) {
-    throw createError(
-      401,
-      "User authentication is required."
-    );
+    throw createError(401, "User authentication is required.");
   }
 
   if (!mongoose.Types.ObjectId.isValid(userId)) {
-    throw createError(
-      400,
-      "Invalid User ID."
-    );
+    throw createError(400, "Invalid User ID.");
   }
 
   const allowedStatuses = [
@@ -1208,10 +1301,7 @@ export const getUserPayments_Service = async ({
   // NORMALIZE STATUS
   // ---------------------------------------
 
-  const normalizeStatus = (
-    value,
-    fieldName
-  ) => {
+  const normalizeStatus = (value, fieldName) => {
     if (
       value === undefined ||
       value === null ||
@@ -1220,46 +1310,38 @@ export const getUserPayments_Service = async ({
       return null;
     }
 
-    const rawValue =
-      Array.isArray(value)
-        ? value[0]
-        : value;
+    const rawValue = Array.isArray(value)
+      ? value[0]
+      : value;
 
     if (typeof rawValue !== "string") {
       throw createError(
         400,
-        `${fieldName} must be a valid string.`
+        `${fieldName} must be a valid string.`,
       );
     }
 
-    const normalized =
-      rawValue
-        .trim()
-        .toUpperCase();
+    const normalized = rawValue.trim().toUpperCase();
 
-    if (
-      !allowedStatuses.includes(normalized)
-    ) {
+    if (!allowedStatuses.includes(normalized)) {
       throw createError(
         400,
-        `Invalid ${fieldName}: ${rawValue}`
+        `Invalid ${fieldName}: ${rawValue}`,
       );
     }
 
     return normalized;
   };
 
-  const normalizedStatus1 =
-    normalizeStatus(
-      status1,
-      "status1"
-    );
+  const normalizedStatus1 = normalizeStatus(
+    status1,
+    "status1",
+  );
 
-  const normalizedStatus2 =
-    normalizeStatus(
-      status2,
-      "status2"
-    );
+  const normalizedStatus2 = normalizeStatus(
+    status2,
+    "status2",
+  );
 
   // ---------------------------------------
   // BUILD FILTER
@@ -1272,22 +1354,16 @@ export const getUserPayments_Service = async ({
   const statuses = [];
 
   if (normalizedStatus1) {
-    statuses.push(
-      normalizedStatus1
-    );
+    statuses.push(normalizedStatus1);
   }
 
   if (normalizedStatus2) {
-    statuses.push(
-      normalizedStatus2
-    );
+    statuses.push(normalizedStatus2);
   }
 
   if (statuses.length > 0) {
     filter.status = {
-      $in: [
-        ...new Set(statuses),
-      ],
+      $in: [...new Set(statuses)],
     };
   }
 
@@ -1295,24 +1371,89 @@ export const getUserPayments_Service = async ({
   // GET PAYMENTS
   // ---------------------------------------
 
-  const payments =
-    await paymentModel
-      .find(filter)
-      .select("-razorpaySignature")
-      .populate({
-        path: "assetId",
-        select:
-          "assetName brand model category subCategory price files",
-      })
-      .populate({
-        path: "orderId",
-        select:
-          "totalAmount currency rentalDurationMonths rentalStartDate rentalEndDate status createdAt",
-      })
-      .sort({
-        createdAt: -1,
-      })
-      .lean();
+  const payments = await paymentModel
+    .find(filter)
+    .select("-razorpaySignature")
+    .populate({
+      path: "assetId",
+      select:
+        "assetName brand model category subCategory price files isAvailable rentalPricing",
+    })
+    .populate({
+      path: "orderId",
+      select:
+        "totalAmount currency rentalDurationMonths rentalStartDate rentalEndDate status createdAt",
+    })
+    .sort({
+      createdAt: -1,
+    })
+    .lean();
+
+  // ---------------------------------------
+  // FORMAT PAYMENTS
+  // ---------------------------------------
+
+  const formattedPayments = payments.map((payment) => {
+    const duration = Number(
+      payment?.orderId?.rentalDurationMonths || 0,
+    );
+
+    const totalAmount = Number(
+      payment?.orderId?.totalAmount || 0,
+    );
+
+    const rentalPricing =
+      payment?.assetId?.rentalPricing;
+
+    // ---------------------------------------
+    // CALCULATE RENTAL PRICE FROM ASSET
+    // ---------------------------------------
+
+    let rentalPrice = 0;
+
+    if (rentalPricing && duration > 0) {
+      if (duration <= 3) {
+        rentalPrice =
+          rentalPricing.zeroToThreeMonths ?? 0;
+      } else if (duration <= 6) {
+        rentalPrice =
+          rentalPricing.threeToSixMonths ?? 0;
+      } else {
+        rentalPrice =
+          rentalPricing.sixMonthsPlus ?? 0;
+      }
+    }
+
+    // ---------------------------------------
+    // CALCULATE RENTAL AMOUNT PER MONTH
+    // totalAmount / rentalDurationMonths
+    // ---------------------------------------
+
+    const rentalAmountPerMonth =
+      duration > 0
+        ? Number((totalAmount / duration).toFixed(2))
+        : 0;
+
+    // ---------------------------------------
+    // ADD FIELD INSIDE ORDER ID
+    // ---------------------------------------
+
+    const updatedOrder = payment.orderId
+      ? {
+          ...payment.orderId,
+
+          rentalAmountPerMonth,
+        }
+      : null;
+
+    return {
+      ...payment,
+
+      orderId: updatedOrder,
+
+      rentalPrice,
+    };
+  });
 
   // ---------------------------------------
   // RESPONSE
@@ -1324,13 +1465,152 @@ export const getUserPayments_Service = async ({
     message:
       "Payment history fetched successfully.",
 
-    totalPayments:
-      payments.length,
+    totalPayments: formattedPayments.length,
 
-    data:
-      payments,
+    data: formattedPayments,
   };
 };
+
+// export const getPaymentForadmin_Service = async ({
+//   page = 1,
+//   limit = 10,
+//   status,
+// }) => {
+//   // ---------------------------------------
+//   // PAGINATION VALIDATION
+//   // ---------------------------------------
+
+//   const currentPage = Number.parseInt(page, 10);
+//   const perPage = Number.parseInt(limit, 10);
+
+//   if (!Number.isInteger(currentPage) || currentPage < 1) {
+//     throw createError(400, "Page must be a positive integer.");
+//   }
+
+//   if (!Number.isInteger(perPage) || perPage < 1) {
+//     throw createError(400, "Limit must be a positive integer.");
+//   }
+
+//   const skip = (currentPage - 1) * perPage;
+
+//   // ---------------------------------------
+//   // FILTER
+//   // ---------------------------------------
+
+//   const filter = {};
+
+//   if (status) {
+//     filter.status = status.toUpperCase();
+//   }
+
+//   // ---------------------------------------
+//   // GET PAYMENTS
+//   // ---------------------------------------
+
+//   const [payments, totalPayments] = await Promise.all([
+//     paymentModel
+//       .find(filter)
+//       .populate({
+//         path: "userId",
+//         select: "name email phone profileImage",
+//       })
+//       .populate({
+//         path: "assetId",
+//         select: "assetName model brand price files",
+//       })
+//       .populate({
+//         path: "orderId",
+//         select:
+//           "totalAmount rentalDurationMonths rentalStartDate rentalEndDate razorpayOrderId status",
+//       })
+//       .sort({ createdAt: -1 })
+//       .skip(skip)
+//       .limit(perPage)
+//       .lean(),
+
+//     paymentModel.countDocuments(filter),
+//   ]);
+
+//   // ---------------------------------------
+//   // FORMAT RESPONSE
+//   // ---------------------------------------
+
+//   const formattedPayments = payments.map((payment) => ({
+//     // PAYMENT DETAILS
+//     paymentId: payment._id,
+//     razorpayPaymentId: payment.razorpayPaymentId || null,
+//     razorpayOrderId: payment.razorpayOrderId || null,
+
+//     paymentDate: payment.paidAt || payment.updatedAt || payment.createdAt,
+
+//     amount: payment.amount,
+//     currency: payment.currency,
+//     status: payment.status,
+
+//     // USER DETAILS
+//     user: payment.userId
+//       ? {
+//           userId: payment.userId._id,
+//           name: payment.userId.name,
+//           email: payment.userId.email,
+//           phone: payment.userId.phone,
+//           profileImage: payment.userId.profileImage || null,
+//         }
+//       : null,
+
+//     // ASSET DETAILS
+//     asset: payment.assetId
+//       ? {
+//           assetId: payment.assetId._id,
+//           assetName: payment.assetId.assetName,
+//           brand: payment.assetId.brand,
+//           model: payment.assetId.model,
+//           price: payment.assetId.price,
+
+//           // FIRST ASSET IMAGE
+//           image: payment.assetId.files?.[0]?.url || null,
+
+//           // ALL ASSET IMAGES (optional)
+//           images: payment.assetId.files || [],
+//         }
+//       : null,
+
+//     // ORDER DETAILS
+//     order: payment.orderId
+//       ? {
+//           orderId: payment.orderId._id,
+//           razorpayOrderId: payment.orderId.razorpayOrderId || null,
+//           totalAmount: payment.orderId.totalAmount,
+//           status: payment.orderId.status,
+//           rentalDurationMonths: payment.orderId.rentalDurationMonths,
+//           rentalStartDate: payment.orderId.rentalStartDate,
+//           rentalEndDate: payment.orderId.rentalEndDate,
+//         }
+//       : null,
+//   }));
+
+//   // ---------------------------------------
+//   // PAGINATION
+//   // ---------------------------------------
+
+//   const totalPages = Math.ceil(totalPayments / perPage);
+
+//   return {
+//     data: formattedPayments,
+
+//     pagination: {
+//       currentPage,
+//       paymentsPerPage: perPage,
+//       totalPayments,
+//       totalPages,
+//       hasNextPage: currentPage < totalPages,
+//       hasPreviousPage: currentPage > 1,
+//       nextPage: currentPage < totalPages ? currentPage + 1 : null,
+//       previousPage: currentPage > 1 ? currentPage - 1 : null,
+//     },
+//   };
+// };
+
 
 export const getPaymentForadmin_Service = async ({
   page = 1,
@@ -1384,7 +1664,9 @@ export const getPaymentForadmin_Service = async ({
         select:
           "totalAmount rentalDurationMonths rentalStartDate rentalEndDate razorpayOrderId status",
       })
-      .sort({ createdAt: -1 })
+      .sort({
+        createdAt: -1,
+      })
       .skip(skip)
       .limit(perPage)
       .lean(),
@@ -1396,82 +1678,165 @@ export const getPaymentForadmin_Service = async ({
   // FORMAT RESPONSE
   // ---------------------------------------
 
-  const formattedPayments = payments.map((payment) => ({
-    // PAYMENT DETAILS
-    paymentId: payment._id,
-    razorpayPaymentId: payment.razorpayPaymentId || null,
-    razorpayOrderId: payment.razorpayOrderId || null,
+  const formattedPayments = payments.map((payment) => {
+    const totalAmount = Number(
+      payment?.orderId?.totalAmount || 0,
+    );
 
-    paymentDate:
-      payment.paidAt ||
-      payment.updatedAt ||
-      payment.createdAt,
+    const rentalDurationMonths = Number(
+      payment?.orderId?.rentalDurationMonths || 0,
+    );
 
-    amount: payment.amount,
-    currency: payment.currency,
-    status: payment.status,
+    // ---------------------------------------
+    // RENTAL AMOUNT PER MONTH
+    // ---------------------------------------
 
-    // USER DETAILS
-    user: payment.userId
-      ? {
-          userId: payment.userId._id,
-          name: payment.userId.name,
-          email: payment.userId.email,
-          phone: payment.userId.phone,
-          profileImage: payment.userId.profileImage || null,
-        }
-      : null,
+    const rentalAmountPerMonth =
+      rentalDurationMonths > 0
+        ? Number(
+            (
+              totalAmount / rentalDurationMonths
+            ).toFixed(2),
+          )
+        : 0;
 
-    // ASSET DETAILS
-    asset: payment.assetId
-      ? {
-          assetId: payment.assetId._id,
-          assetName: payment.assetId.assetName,
-          brand: payment.assetId.brand,
-          model: payment.assetId.model,
-          price: payment.assetId.price,
+    return {
+      // ---------------------------------------
+      // PAYMENT DETAILS
+      // ---------------------------------------
 
-          // FIRST ASSET IMAGE
-          image: payment.assetId.files?.[0]?.url || null,
+      paymentId: payment._id,
 
-          // ALL ASSET IMAGES (optional)
-          images: payment.assetId.files || [],
-        }
-      : null,
+      razorpayPaymentId:
+        payment.razorpayPaymentId || null,
 
-    // ORDER DETAILS
-    order: payment.orderId
-      ? {
-          orderId: payment.orderId._id,
-          razorpayOrderId: payment.orderId.razorpayOrderId || null,
-          totalAmount: payment.orderId.totalAmount,
-          status: payment.orderId.status,
-          rentalDurationMonths:
-            payment.orderId.rentalDurationMonths,
-          rentalStartDate: payment.orderId.rentalStartDate,
-          rentalEndDate: payment.orderId.rentalEndDate,
-        }
-      : null,
-  }));
+      razorpayOrderId:
+        payment.razorpayOrderId || null,
+
+      paymentDate:
+        payment.paidAt ||
+        payment.updatedAt ||
+        payment.createdAt,
+
+      amount: payment.amount,
+
+      currency: payment.currency,
+
+      status: payment.status,
+
+      // ---------------------------------------
+      // USER DETAILS
+      // ---------------------------------------
+
+      user: payment.userId
+        ? {
+            userId: payment.userId._id,
+
+            name: payment.userId.name,
+
+            email: payment.userId.email,
+
+            phone: payment.userId.phone,
+
+            profileImage:
+              payment.userId.profileImage || null,
+          }
+        : null,
+
+      // ---------------------------------------
+      // ASSET DETAILS
+      // ---------------------------------------
+
+      asset: payment.assetId
+        ? {
+            assetId: payment.assetId._id,
+
+            assetName: payment.assetId.assetName,
+
+            brand: payment.assetId.brand,
+
+            model: payment.assetId.model,
+
+            price: payment.assetId.price,
+
+            // FIRST ASSET IMAGE
+            image:
+              payment.assetId.files?.[0]?.url || null,
+
+            // ALL ASSET IMAGES
+            images: payment.assetId.files || [],
+          }
+        : null,
+
+      // ---------------------------------------
+      // ORDER DETAILS
+      // ---------------------------------------
+
+      order: payment.orderId
+        ? {
+            orderId: payment.orderId._id,
+
+            razorpayOrderId:
+              payment.orderId.razorpayOrderId ||
+              null,
+
+            totalAmount:
+              payment.orderId.totalAmount,
+
+            status:
+              payment.orderId.status,
+
+            rentalDurationMonths:
+              payment.orderId.rentalDurationMonths,
+
+            // NEW FIELD
+            rentalAmountPerMonth,
+
+            rentalStartDate:
+              payment.orderId.rentalStartDate,
+
+            rentalEndDate:
+              payment.orderId.rentalEndDate,
+          }
+        : null,
+    };
+  });
 
   // ---------------------------------------
   // PAGINATION
   // ---------------------------------------
 
-  const totalPages = Math.ceil(totalPayments / perPage);
+  const totalPages = Math.ceil(
+    totalPayments / perPage,
+  );
 
   return {
     data: formattedPayments,
 
     pagination: {
       currentPage,
+
       paymentsPerPage: perPage,
+
       totalPayments,
+
       totalPages,
-      hasNextPage: currentPage < totalPages,
-      hasPreviousPage: currentPage > 1,
-      nextPage: currentPage < totalPages ? currentPage + 1 : null,
-      previousPage: currentPage > 1 ? currentPage - 1 : null,
+
+      hasNextPage:
+        currentPage < totalPages,
+
+      hasPreviousPage:
+        currentPage > 1,
+
+      nextPage:
+        currentPage < totalPages
+          ? currentPage + 1
+          : null,
+
+      previousPage:
+        currentPage > 1
+          ? currentPage - 1
+          : null,
     },
   };
 };
