@@ -373,6 +373,147 @@ export const getAssetsService = async () => {
 };
 
 
+// export const editAssetService = async ({
+//   assetId,
+//   userId,
+//   body = {},
+//   files = [],
+// }) => {
+//   let newlyUploadedFiles = [];
+
+//   // 1. Check logged-in user
+//   if (!userId) {
+//     throw createError(401, "Unauthorized user.");
+//   }
+
+//   // 2. Validate asset ID
+//   if (!assetId || !mongoose.Types.ObjectId.isValid(assetId)) {
+//     throw createError(400, "Invalid asset ID.");
+//   }
+
+//   // 3. Find the asset belonging to the logged-in user
+//   const existingAsset = await assetModel.findOne({
+//     _id: assetId,
+//     userId,
+//   });
+
+//   if (!existingAsset) {
+//     throw createError(
+//       404,
+//       "Asset not found or you are not allowed to edit it.",
+//     );
+//   }
+
+//   // 4. Prepare partial update data
+//   const updateData = {};
+
+//   const allowedFields = [
+//     "model",
+//     "brand",
+//     "category",
+//     "subCategory",
+//     "assetName",
+//     "purchaseYear",
+//     "price",
+//     "rentalPricing"
+//   ];
+
+//   for (const field of allowedFields) {
+//     if (body[field] !== undefined) {
+//       const cleanedValue = cleanValue(body[field]);
+
+//       if (cleanedValue === undefined) {
+//         throw createError(400, `${field} cannot be empty.`);
+//       }
+
+//       updateData[field] = cleanedValue;
+//     }
+//   }
+
+//   // 5. Required fields cannot become empty
+
+//   // 6. Validate uploaded files
+//   if (!Array.isArray(files)) {
+//     throw createError(400, "Invalid uploaded files.");
+//   }
+
+//   try {
+//     // 7. Upload new images when provided
+//     if (files.length > 0) {
+//       newlyUploadedFiles = await Promise.all(
+//         files.map((file) => uploadAssetFile(file)),
+//       );
+
+//       // New images will replace existing images
+//       updateData.files = newlyUploadedFiles;
+//     }
+
+//     // 8. Check whether user sent anything to update
+//     if (Object.keys(updateData).length === 0) {
+//       throw createError(400, "Provide at least one field or image to update.");
+//     }
+
+//     // 9. Update only provided fields
+//     const updatedAsset = await assetModel.findOneAndUpdate(
+//       {
+//         _id: assetId,
+//         userId,
+//       },
+//       {
+//         $set: updateData,
+//       },
+//       {
+//         new: true,
+//         runValidators: true,
+//       },
+//     );
+
+//     if (!updatedAsset) {
+//       throw createError(404, "Asset could not be updated.");
+//     }
+
+//     // 10. Delete old images only after DB update succeeds
+//     if (
+//       newlyUploadedFiles.length > 0 &&
+//       Array.isArray(existingAsset.files) &&
+//       existingAsset.files.length > 0
+//     ) {
+//       await Promise.allSettled(
+//         existingAsset.files.map(async (file) => {
+//           const fileId = file.fileId || file.publicId || file.public_id;
+
+//           if (fileId) {
+//             await deleteAssetFile(fileId);
+//           }
+//         }),
+//       );
+//     }
+
+//     return updatedAsset;
+//   } catch (error) {
+//     /*
+//      * If new images were uploaded but the database update failed,
+//      * remove the newly uploaded images.
+//      */
+//     if (newlyUploadedFiles.length > 0) {
+//       await Promise.allSettled(
+//         newlyUploadedFiles.map(async (file) => {
+//           const fileId = file.fileId || file.publicId || file.public_id;
+
+//           if (fileId) {
+//             await deleteAssetFile(fileId);
+//           }
+//         }),
+//       );
+//     }
+
+//     throw error;
+//   }
+// };
+
+
+
+
 export const editAssetService = async ({
   assetId,
   userId,
@@ -381,17 +522,26 @@ export const editAssetService = async ({
 }) => {
   let newlyUploadedFiles = [];
 
-  // 1. Check logged-in user
+  // ---------------------------------------
+  // 1. CHECK LOGGED-IN USER
+  // ---------------------------------------
+
   if (!userId) {
     throw createError(401, "Unauthorized user.");
   }
 
-  // 2. Validate asset ID
+  // ---------------------------------------
+  // 2. VALIDATE ASSET ID
+  // ---------------------------------------
+
   if (!assetId || !mongoose.Types.ObjectId.isValid(assetId)) {
     throw createError(400, "Invalid asset ID.");
   }
 
-  // 3. Find the asset belonging to the logged-in user
+  // ---------------------------------------
+  // 3. FIND USER ASSET
+  // ---------------------------------------
+
   const existingAsset = await assetModel.findOne({
     _id: assetId,
     userId,
@@ -404,7 +554,10 @@ export const editAssetService = async ({
     );
   }
 
-  // 4. Prepare partial update data
+  // ---------------------------------------
+  // 4. PREPARE UPDATE DATA
+  // ---------------------------------------
+
   const updateData = {};
 
   const allowedFields = [
@@ -415,44 +568,108 @@ export const editAssetService = async ({
     "assetName",
     "purchaseYear",
     "price",
+    "isAvailable",
   ];
 
   for (const field of allowedFields) {
     if (body[field] !== undefined) {
       const cleanedValue = cleanValue(body[field]);
 
-      if (cleanedValue === undefined) {
-        throw createError(400, `${field} cannot be empty.`);
+      // If empty/null value sent,
+      // simply skip it instead of throwing error
+      if (cleanedValue !== undefined) {
+        updateData[field] = cleanedValue;
       }
-
-      updateData[field] = cleanedValue;
     }
   }
 
-  // 5. Required fields cannot become empty
+  // ---------------------------------------
+  // 5. HANDLE RENTAL PRICING
+  // ---------------------------------------
 
-  // 6. Validate uploaded files
+  if (body.rentalPricing !== undefined) {
+    let rentalPricing = body.rentalPricing;
+
+    // multipart/form-data may send JSON as string
+    if (typeof rentalPricing === "string") {
+      try {
+        rentalPricing = JSON.parse(rentalPricing);
+      } catch (error) {
+        throw createError(
+          400,
+          "rentalPricing must be a valid JSON object.",
+        );
+      }
+    }
+
+    if (
+      rentalPricing &&
+      typeof rentalPricing === "object" &&
+      !Array.isArray(rentalPricing)
+    ) {
+      const allowedRentalFields = [
+        "zeroToThreeMonths",
+        "threeToSixMonths",
+        "sixMonthsPlus",
+      ];
+
+      for (const field of allowedRentalFields) {
+        if (
+          rentalPricing[field] !== undefined &&
+          rentalPricing[field] !== null &&
+          rentalPricing[field] !== ""
+        ) {
+          const value = Number(rentalPricing[field]);
+
+          if (!Number.isFinite(value) || value < 0) {
+            throw createError(
+              400,
+              `${field} must be a valid number greater than or equal to 0.`,
+            );
+          }
+
+          updateData[`rentalPricing.${field}`] = value;
+        }
+      }
+    }
+  }
+
+  // ---------------------------------------
+  // 6. VALIDATE FILES
+  // ---------------------------------------
+
   if (!Array.isArray(files)) {
     throw createError(400, "Invalid uploaded files.");
   }
 
   try {
-    // 7. Upload new images when provided
+    // ---------------------------------------
+    // 7. UPLOAD NEW IMAGES
+    // ---------------------------------------
+
     if (files.length > 0) {
       newlyUploadedFiles = await Promise.all(
         files.map((file) => uploadAssetFile(file)),
       );
 
-      // New images will replace existing images
       updateData.files = newlyUploadedFiles;
     }
 
-    // 8. Check whether user sent anything to update
+    // ---------------------------------------
+    // 8. NOTHING PROVIDED
+    // ---------------------------------------
+
     if (Object.keys(updateData).length === 0) {
-      throw createError(400, "Provide at least one field or image to update.");
+      throw createError(
+        400,
+        "Provide at least one field or image to update.",
+      );
     }
 
-    // 9. Update only provided fields
+    // ---------------------------------------
+    // 9. UPDATE ASSET
+    // ---------------------------------------
+
     const updatedAsset = await assetModel.findOneAndUpdate(
       {
         _id: assetId,
@@ -471,7 +688,10 @@ export const editAssetService = async ({
       throw createError(404, "Asset could not be updated.");
     }
 
-    // 10. Delete old images only after DB update succeeds
+    // ---------------------------------------
+    // 10. DELETE OLD IMAGES
+    // ---------------------------------------
+
     if (
       newlyUploadedFiles.length > 0 &&
       Array.isArray(existingAsset.files) &&
@@ -479,7 +699,10 @@ export const editAssetService = async ({
     ) {
       await Promise.allSettled(
         existingAsset.files.map(async (file) => {
-          const fileId = file.fileId || file.publicId || file.public_id;
+          const fileId =
+            file.fileId ||
+            file.publicId ||
+            file.public_id;
 
           if (fileId) {
             await deleteAssetFile(fileId);
@@ -490,14 +713,17 @@ export const editAssetService = async ({
 
     return updatedAsset;
   } catch (error) {
-    /*
-     * If new images were uploaded but the database update failed,
-     * remove the newly uploaded images.
-     */
+    // ---------------------------------------
+    // REMOVE NEW FILES IF UPDATE FAILED
+    // ---------------------------------------
+
     if (newlyUploadedFiles.length > 0) {
       await Promise.allSettled(
         newlyUploadedFiles.map(async (file) => {
-          const fileId = file.fileId || file.publicId || file.public_id;
+          const fileId =
+            file.fileId ||
+            file.publicId ||
+            file.public_id;
 
           if (fileId) {
             await deleteAssetFile(fileId);
@@ -509,7 +735,6 @@ export const editAssetService = async ({
     throw error;
   }
 };
-
 export const deleteAssetService = async ({ assetId, userId }) => {
   // 1. Check logged-in user
   if (!userId) {
