@@ -742,22 +742,13 @@ export const getAssetsService = async () => {
 
 export const editAssetService = async ({
   assetId,
-  userId,
   body = {},
   files = [],
 }) => {
   let newlyUploadedFiles = [];
 
   // ---------------------------------------
-  // 1. CHECK LOGGED-IN USER
-  // ---------------------------------------
-
-  if (!userId) {
-    throw createError(401, "Unauthorized user.");
-  }
-
-  // ---------------------------------------
-  // 2. VALIDATE ASSET ID
+  // 1. VALIDATE ASSET ID
   // ---------------------------------------
 
   if (!assetId || !mongoose.Types.ObjectId.isValid(assetId)) {
@@ -765,23 +756,18 @@ export const editAssetService = async ({
   }
 
   // ---------------------------------------
-  // 3. FIND USER ASSET
+  // 2. FIND ASSET
+  // No userId restriction for admin
   // ---------------------------------------
 
-  const existingAsset = await assetModel.findOne({
-    _id: assetId,
-    userId,
-  });
+  const existingAsset = await assetModel.findById(assetId);
 
   if (!existingAsset) {
-    throw createError(
-      404,
-      "Asset not found or you are not allowed to edit it.",
-    );
+    throw createError(404, "Asset not found.");
   }
 
   // ---------------------------------------
-  // 4. PREPARE UPDATE DATA
+  // 3. PREPARE UPDATE DATA
   // ---------------------------------------
 
   const updateData = {};
@@ -797,15 +783,15 @@ export const editAssetService = async ({
   ];
 
   // ---------------------------------------
-  // 5. HANDLE NORMAL FIELDS
+  // 4. HANDLE NORMAL FIELDS
   // ---------------------------------------
 
   for (const field of allowedFields) {
     if (body[field] !== undefined) {
       const cleanedValue = cleanValue(body[field]);
 
-      // No field is mandatory.
-      // Empty fields will simply be ignored.
+      // Nothing mandatory.
+      // Empty values are simply skipped.
       if (cleanedValue !== undefined) {
         updateData[field] = cleanedValue;
       }
@@ -813,7 +799,7 @@ export const editAssetService = async ({
   }
 
   // ---------------------------------------
-  // 6. HANDLE IS AVAILABLE
+  // 5. HANDLE IS AVAILABLE
   // ---------------------------------------
 
   if (
@@ -840,7 +826,7 @@ export const editAssetService = async ({
   }
 
   // ---------------------------------------
-  // 7. HANDLE RENTAL PRICING
+  // 6. HANDLE RENTAL PRICING
   // ---------------------------------------
 
   const rentalFields = [
@@ -849,22 +835,11 @@ export const editAssetService = async ({
     "sixMonthsPlus",
   ];
 
-  /*
-   * Supports:
-   *
-   * JSON:
-   * rentalPricing: {
-   *   zeroToThreeMonths: 70000
-   * }
-   *
-   * Form-data:
-   * rentalPricing[zeroToThreeMonths]: 70000
-   */
-
   let rentalPricing = {};
 
   // ---------------------------------------
-  // CASE 1: body.rentalPricing
+  // CASE 1:
+  // rentalPricing as object / JSON string
   // ---------------------------------------
 
   if (body.rentalPricing !== undefined) {
@@ -885,8 +860,8 @@ export const editAssetService = async ({
           };
         }
       } catch (error) {
-        // If it isn't JSON, don't immediately fail because
-        // bracket-style form-data may still have been provided.
+        // Ignore JSON parse failure here because
+        // bracket notation may still be provided.
       }
     } else if (
       body.rentalPricing &&
@@ -901,7 +876,12 @@ export const editAssetService = async ({
   }
 
   // ---------------------------------------
-  // CASE 2: FORM-DATA BRACKET NOTATION
+  // CASE 2:
+  // Postman form-data bracket notation
+  //
+  // rentalPricing[zeroToThreeMonths]
+  // rentalPricing[threeToSixMonths]
+  // rentalPricing[sixMonthsPlus]
   // ---------------------------------------
 
   for (const field of rentalFields) {
@@ -913,13 +893,12 @@ export const editAssetService = async ({
   }
 
   // ---------------------------------------
-  // VALIDATE + ADD RENTAL PRICING
+  // VALIDATE RENTAL PRICING
   // ---------------------------------------
 
   for (const field of rentalFields) {
     const rawValue = rentalPricing[field];
 
-    // Nothing mandatory
     if (
       rawValue === undefined ||
       rawValue === null ||
@@ -937,13 +916,11 @@ export const editAssetService = async ({
       );
     }
 
-    // Dot notation means only this specific
-    // rental field will be updated.
     updateData[`rentalPricing.${field}`] = value;
   }
 
   // ---------------------------------------
-  // 8. VALIDATE FILES
+  // 7. VALIDATE FILES
   // ---------------------------------------
 
   if (!Array.isArray(files)) {
@@ -952,7 +929,7 @@ export const editAssetService = async ({
 
   try {
     // ---------------------------------------
-    // 9. UPLOAD NEW IMAGES
+    // 8. UPLOAD NEW IMAGES
     // ---------------------------------------
 
     if (files.length > 0) {
@@ -960,12 +937,12 @@ export const editAssetService = async ({
         files.map((file) => uploadAssetFile(file)),
       );
 
-      // New images replace existing images
+      // New images replace old images
       updateData.files = newlyUploadedFiles;
     }
 
     // ---------------------------------------
-    // 10. NOTHING PROVIDED TO UPDATE
+    // 9. NOTHING PROVIDED TO UPDATE
     // ---------------------------------------
 
     if (Object.keys(updateData).length === 0) {
@@ -976,14 +953,11 @@ export const editAssetService = async ({
     }
 
     // ---------------------------------------
-    // 11. UPDATE ASSET
+    // 10. UPDATE ASSET
     // ---------------------------------------
 
-    const updatedAsset = await assetModel.findOneAndUpdate(
-      {
-        _id: assetId,
-        userId,
-      },
+    const updatedAsset = await assetModel.findByIdAndUpdate(
+      assetId,
       {
         $set: updateData,
       },
@@ -1001,7 +975,7 @@ export const editAssetService = async ({
     }
 
     // ---------------------------------------
-    // 12. DELETE OLD IMAGES
+    // 11. DELETE OLD IMAGES
     // ---------------------------------------
 
     if (
@@ -1026,7 +1000,7 @@ export const editAssetService = async ({
     return updatedAsset;
   } catch (error) {
     // ---------------------------------------
-    // 13. CLEAN NEW FILES IF UPDATE FAILED
+    // 12. CLEAN NEW FILES IF UPDATE FAILED
     // ---------------------------------------
 
     if (newlyUploadedFiles.length > 0) {
@@ -1065,10 +1039,8 @@ export const deleteAssetService = async ({ assetId, userId }) => {
     throw createError(404, "Asset not found.");
   }
 
-  // 4. Check asset ownership
-  if (!asset.userId || String(asset.userId) !== String(userId)) {
-    throw createError(403, "You are not allowed to delete this asset.");
-  }
+  
+  
 
   // 5. Store asset response before deleting
   const deletedAssetData = asset.toObject();
